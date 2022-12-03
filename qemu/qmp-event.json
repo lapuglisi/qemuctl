@@ -1,0 +1,24 @@
+{
+    "return": {}
+}
+{
+    "timestamp": 
+    {
+        "seconds": 1670024852, 
+        "microseconds": 229002
+    }, 
+    "event": "POWERDOWN"
+}
+{
+    "timestamp": 
+    {
+        "seconds": 1670024854, 
+        "microseconds": 68586
+    }, 
+    "event": "SHUTDOWN", 
+    "data": 
+    {
+        "guest": true, 
+        "reason": "guest-shutdown"
+    }
+}

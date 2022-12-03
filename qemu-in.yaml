@@ -1,0 +1,65 @@
+machine:
+  name: machine-name
+  type: q35
+  accel: kvm
+  enableKVM: true
+  tpm:
+    passthrough:
+      enabled: false
+      id: none
+      path: /dev/tpm-path
+      cancelPath: /dev/tpm-cancel-path
+    emulator:
+      enabled: false
+      id: none
+      charDevice: some-char-dev
+
+runAsDaemon: true
+
+memory: 1G
+cpus: 2
+
+net:
+  deviceType: e1000
+  user:
+    id: mynet0
+    ipSubnet: 192.168.100.0/24
+    portForwards:
+      - guestPort: 80
+        hostPort: 8080
+  bridge:
+    id: mybridge0
+    interface: br0
+    mac: 02x:02x:02x:02x:02x:02x
+    helper: bridge-helper
+
+ssh:
+  localPort: 2222
+
+display:
+  enableGraphics: true
+  displaySpec: default
+  vgaType: std
+  vnc:
+    enabled: true
+    listen: [xxx.xxx.xxx.xxx:]display_number
+  spice:
+    enabled: true
+    port: 0
+    address: xxx.xxx.xxx.xxx
+    tlsPort: 0
+    disableTicketing: true
+    password: somepass
+    enableAgentMouse: true
+
+disks:
+  cdrom: /path/to/cdrom.iso
+  blockDevice: /dev/block_device
+  hardDisk: /path/to/harddisk.img
+
+boot:
+  kernelPath: /path/to/bzImage
+  ramdiskPath: /path/to/initrd
+  biosFile: /path/to/bios.bin
+  enableBootMenu: false
+  bootOrder: cdan
