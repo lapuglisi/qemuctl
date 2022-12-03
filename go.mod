@@ -1,4 +1,4 @@
-module luizpuglisi.com/qemuctl
+module github.com/lapuglisi/qemuctl
 
 go 1.19
 

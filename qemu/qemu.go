@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	config "luizpuglisi.com/qemuctl/helpers"
-	runtime "luizpuglisi.com/qemuctl/runtime"
+	config "github.com/lapuglisi/qemuctl/helpers"
+	runtime "github.com/lapuglisi/qemuctl/runtime"
 )
 
 const (

@@ -3,8 +3,8 @@ package qemuctl_actions
 import (
 	"fmt"
 
-	qemuctl_qemu "luizpuglisi.com/qemuctl/qemu"
-	runtime "luizpuglisi.com/qemuctl/runtime"
+	qemuctl_qemu "github.com/lapuglisi/qemuctl/qemu"
+	runtime "github.com/lapuglisi/qemuctl/runtime"
 )
 
 type StatusAction struct {

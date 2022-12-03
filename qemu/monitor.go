@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	runtime "luizpuglisi.com/qemuctl/runtime"
+	runtime "github.com/lapuglisi/qemuctl/runtime"
 )
 
 func init() {

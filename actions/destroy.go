@@ -3,7 +3,7 @@ package qemuctl_actions
 import (
 	"fmt"
 
-	runtime "luizpuglisi.com/qemuctl/runtime"
+	runtime "github.com/lapuglisi/qemuctl/runtime"
 )
 
 type DestroyAction struct {

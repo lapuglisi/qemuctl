@@ -6,14 +6,13 @@ import (
 	"log"
 	"strconv"
 
-	helpers "luizpuglisi.com/qemuctl/helpers"
-	qemuctl_qemu "luizpuglisi.com/qemuctl/qemu"
-	runtime "luizpuglisi.com/qemuctl/runtime"
+	helpers "github.com/lapuglisi/qemuctl/helpers"
+	qemuctl_qemu "github.com/lapuglisi/qemuctl/qemu"
+	runtime "github.com/lapuglisi/qemuctl/runtime"
 )
 
 type CreateAction struct {
 	machineName string
-	qemuBinary  string
 	configFile  string
 }
 

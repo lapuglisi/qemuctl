@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	actions "luizpuglisi.com/qemuctl/actions"
-	runtime "luizpuglisi.com/qemuctl/runtime"
+	actions "github.com/lapuglisi/qemuctl/actions"
+	runtime "github.com/lapuglisi/qemuctl/runtime"
 )
 
 func usage() {

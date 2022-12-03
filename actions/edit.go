@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	runtime "luizpuglisi.com/qemuctl/runtime"
+	runtime "github.com/lapuglisi/qemuctl/runtime"
 )
 
 type EditAction struct {
