@@ -3,7 +3,6 @@ package qemuctl_actions
 import (
 	"fmt"
 	"log"
-	"strconv"
 
 	helpers "github.com/lapuglisi/qemuctl/helpers"
 	qemuctl_qemu "github.com/lapuglisi/qemuctl/qemu"
@@ -38,6 +37,8 @@ func (action *StartAction) Run(arguments []string) (err error) {
 }
 
 func (action *StartAction) handleStart(machineName string) (err error) {
+	var qemuPid int
+
 	log.Printf("[start] starting machine '%s'", machineName)
 	action.machine = runtime.NewMachine(machineName)
 
@@ -69,40 +70,21 @@ func (action *StartAction) handleStart(machineName string) (err error) {
 	log.Printf("[start] launching qemu command")
 	qemu := qemuctl_qemu.NewQemuCommand(configData, qemuMonitor)
 
-	err = qemu.Launch()
+	qemuPid, err = qemu.Launch()
 	if err == nil {
-		procPid := 0
-		pidString, err := qemuMonitor.GetPidFileData()
-		if err == nil {
-			procPid, err = strconv.Atoi(pidString)
-			if err == nil {
-				log.Printf("[start] got machine pid: %d", procPid)
+		log.Printf("[start] got machine pid: %d", qemuPid)
 
-				action.machine.QemuPid = procPid
-				action.machine.SSHLocalPort = configData.SSH.LocalPort
-				action.machine.UpdateStatus(runtime.MachineStatusStarted)
+		action.machine.QemuPid = qemuPid
+		action.machine.SSHLocalPort = configData.SSH.LocalPort
+		action.machine.Status = runtime.MachineStatusRunning
+		action.machine.UpdateData()
 
-				fmt.Println("\033[32mok!\033[0m")
-			} else {
-				log.Printf("[start] could not convert pid string to int %s", err.Error())
-
-				action.machine.QemuPid = 0
-				action.machine.SSHLocalPort = 0
-				action.machine.UpdateStatus(runtime.MachineStatusStopped)
-
-				fmt.Println("\033[33mstopped!\033[0m")
-			}
-		} else {
-			log.Printf("[start] could not get process pid: %s", err.Error())
-
-			action.machine.QemuPid = 0
-			action.machine.SSHLocalPort = 0
-			action.machine.UpdateStatus(runtime.MachineStatusStopped)
-
-			fmt.Println("\033[33mstopped!\033[0m")
-		}
+		fmt.Println("\033[32mok!\033[0m")
 	} else {
-		action.machine.UpdateStatus(runtime.MachineStatusDegraded)
+		action.machine.QemuPid = 0
+		action.machine.SSHLocalPort = 0
+		action.machine.Status = runtime.MachineStatusDegraded
+		action.machine.UpdateData()
 	}
 
 	return err

@@ -268,13 +268,13 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 	return qemuArgs, nil
 }
 
-func (qemu *QemuCommand) Launch() (err error) {
+func (qemu *QemuCommand) Launch() (processPid int, err error) {
 	// var procAttrs *os.ProcAttr = nil
 	var qemuArgs []string
 
 	qemuArgs, err = qemu.getQemuArgs()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// TODO: use the log feature
@@ -284,18 +284,6 @@ func (qemu *QemuCommand) Launch() (err error) {
 
 	/* Actual execution of QEMU */
 	err = nil
-	/*
-		procAttrs = &os.ProcAttr{
-			Dir: os.ExpandEnv("$HOME"),
-			Env: os.Environ(),
-			Files: []*os.File{
-				nil,
-				nil,
-				os.Stderr,
-			},
-			Sys: nil,
-		}
-	*/
 
 	log.Printf("[launch] creating qemu command struct")
 	qemuCmd := exec.Command(qemu.QemuPath, qemuArgs...)
@@ -304,7 +292,7 @@ func (qemu *QemuCommand) Launch() (err error) {
 	err = qemuCmd.Start()
 	if err != nil {
 		log.Printf("[launch] error starting command: %s", err.Error())
-		return err
+		return 0, err
 	}
 
 	log.Printf("[launch] waiting for qemu command to finish")
@@ -315,24 +303,16 @@ func (qemu *QemuCommand) Launch() (err error) {
 
 		log.Printf("[launch] cmd output: [%s] [%s]", string(cmdBytes), err.Error())
 		qemuCmd.Process.Kill()
-		return err
+		return 0, err
 	}
 
 	log.Printf("[launch] qemu process state: %s", qemuCmd.ProcessState.String())
 
-	/*
-		procHandle, err := os.StartProcess(qemu.QemuPath, qemuArgs, procAttrs)
-		if err == nil {
-			log.Printf("[qemu.launch] success: %v", procHandle)
+	procPid, err := qemu.Monitor.GetPidFromPidFile()
 
-			err := procHandle.Release()
-			if err != nil {
-				log.Printf("[launch] releasing the process failed: %s", err.Error())
-			}
-		} else {
-			log.Printf("[qemu.launch] some error ocurred: %s", err.Error())
-		}
-	*/
+	if err != nil {
+		return 0, nil
+	}
 
-	return err
+	return procPid, nil
 }

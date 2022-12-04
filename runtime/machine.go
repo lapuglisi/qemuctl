@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -18,7 +19,9 @@ func init() {
 const (
 	MachineBaseDirectoryName string = "machines"
 	MachineDataFileName      string = "machine-data.json"
+	MachineStatusCreated     string = "created"
 	MachineStatusStarted     string = "started"
+	MachineStatusRunning     string = "running"
 	MachineStatusStopped     string = "stopped"
 	MachineStatusDegraded    string = "degraded"
 	MachineStatusUnknown     string = "unknown"
@@ -45,10 +48,11 @@ func NewMachine(machineName string) (machine *Machine) {
 	var runtimeDirectory string = fmt.Sprintf("%s/%s/%s",
 		GetUserDataDir(), MachineBaseDirectoryName, machineName)
 	var dataFile string = fmt.Sprintf("%s/%s", runtimeDirectory, MachineDataFileName)
-	configFile := fmt.Sprintf("%s/%s", runtimeDirectory, MachineConfigFileName)
+	var configFile string = fmt.Sprintf("%s/%s", runtimeDirectory, MachineConfigFileName)
 
 	var fileData []byte
 	var machineData MachineData = MachineData{
+		QemuPid:      0,
 		State:        MachineStatusUnknown,
 		SSHLocalPort: 0,
 	}
@@ -75,9 +79,9 @@ func NewMachine(machineName string) (machine *Machine) {
 	}
 
 	/* Make sure to check if qemu's process is actually running */
-	if machine.IsStarted() {
+	if machine.IsRunning() {
 		log.Printf("[machine] checking for pid file")
-		log.Printf("[machine] checking for qemu process #%d", machineData.QemuPid)
+		machine.QemuPid = machine.GetPidFileData()
 
 		if machine.QemuPid > 0 {
 			procHandle, err := os.FindProcess(machine.QemuPid)
@@ -85,19 +89,21 @@ func NewMachine(machineName string) (machine *Machine) {
 				err = procHandle.Signal(syscall.SIGCONT)
 			}
 			if err != nil {
-				log.Printf("[machine] looks like the process %d is not there (%v). updating machine status", machineData.QemuPid, err)
+				log.Printf("[machine] looks like the process %d is not there (%s). updating machine status",
+					machineData.QemuPid,
+					err.Error())
 				machine.QemuPid = 0
-				machine.Status = MachineStatusDegraded
+				machine.Status = MachineStatusStopped
 				machine.SSHLocalPort = 0
-				machine.UpdateStatus(MachineStatusDegraded)
+				machine.UpdateData()
 			}
 		} else {
 			log.Printf("[machine] invalid PID #%d for machine '%s'", machineData.QemuPid, machineName)
 			log.Printf("[machine] PID %d is not valid, machine is therefore degraded; updating machine status", machineData.QemuPid)
 			machine.QemuPid = 0
-			machine.Status = MachineStatusDegraded
+			machine.Status = MachineStatusStopped
 			machine.SSHLocalPort = 0
-			machine.UpdateStatus(MachineStatusDegraded)
+			machine.UpdateData()
 		}
 	}
 
@@ -110,15 +116,44 @@ func (m *Machine) Exists() bool {
 		return false
 	}
 
+	if !fileInfo.IsDir() {
+		log.Printf("[machine::exists] path '%s' is not a directory", m.RuntimeDirectory)
+	}
+
 	return fileInfo.IsDir()
 }
 
 func (m *Machine) Destroy() bool {
+	var err error
+	var dataFile string = fmt.Sprintf("%s/%s", m.RuntimeDirectory, MachineDataFileName)
+	var configFile string = fmt.Sprintf("%s/%s", m.RuntimeDirectory, MachineConfigFileName)
+
 	log.Printf("qemuctl: destroying machine %s\n", m.Name)
 
-	err := os.RemoveAll(m.RuntimeDirectory)
+	/*
+		err := os.RemoveAll(m.RuntimeDirectory)
+	*/
+	// IMPORTANT: Remove only qemuctl files
+	log.Printf("[machine::destroy] removing data file '%s'", dataFile)
+	err = os.Remove(dataFile)
+
+	if err == nil {
+		log.Printf("[machine::destroy] removing config file '%s'", configFile)
+		err = os.Remove(configFile)
+
+		if err != nil {
+			log.Printf("[machine::destroy] error while removing '%s': %s", configFile, err.Error())
+		}
+
+	} else {
+		log.Printf("[machine::destroy] error while removing '%s': %s", dataFile, err.Error())
+	}
 
 	return err == nil
+}
+
+func (m *Machine) IsRunning() bool {
+	return (strings.Compare(MachineStatusRunning, m.Status) == 0)
 }
 
 func (m *Machine) IsStarted() bool {
@@ -137,7 +172,7 @@ func (m *Machine) IsUnknown() bool {
 	return (strings.Compare(MachineStatusUnknown, m.Status) == 0)
 }
 
-func (m *Machine) UpdateStatus(status string) (err error) {
+func (m *Machine) UpdateData() (err error) {
 	var statusFile string = fmt.Sprintf("%s/%s", m.RuntimeDirectory, MachineDataFileName)
 	var fileHandle *os.File
 	var machineData MachineData
@@ -147,16 +182,18 @@ func (m *Machine) UpdateStatus(status string) (err error) {
 	if err != nil {
 		return err
 	}
+	defer fileHandle.Close()
 
 	/* populate new MachineData */
 	machineData = MachineData{
 		QemuPid:      m.QemuPid,
 		SSHLocalPort: m.SSHLocalPort,
-		State:        status,
+		State:        m.Status,
 	}
 
-	switch status {
-	case MachineStatusDegraded, MachineStatusStarted, MachineStatusStopped, MachineStatusUnknown:
+	switch m.Status {
+	case MachineStatusCreated, MachineStatusRunning, MachineStatusDegraded,
+		MachineStatusStarted, MachineStatusStopped, MachineStatusUnknown:
 		{
 			log.Printf("[UpdateStatus] updating file '%s' with [%v].\n", statusFile, machineData)
 			jsonBytes, err := json.Marshal(machineData)
@@ -175,10 +212,9 @@ func (m *Machine) UpdateStatus(status string) (err error) {
 		}
 	default:
 		{
-			err = fmt.Errorf("invalid machine status '%s'", status)
+			err = fmt.Errorf("invalid machine status '%s'", m.Status)
 		}
 	}
-	fileHandle.Close()
 
 	return err
 }
@@ -214,4 +250,28 @@ func (m *Machine) GetMachineFileData(fileName string) (data []byte, err error) {
 	}
 
 	return data, nil
+}
+
+func (m *Machine) GetPidFileData() int {
+	var pidFile string = fmt.Sprintf("%s/%s", m.RuntimeDirectory, RuntimeQemuPIDFileName)
+	var fileData []byte = make([]byte, 32)
+	var err error
+
+	fileData, err = os.ReadFile(pidFile)
+	if err != nil {
+		log.Printf("[GetPidFileData] error while reading PID file: %s", err.Error())
+		return 0
+	}
+
+	pidString := strings.TrimSpace(string(fileData))
+	log.Printf("[GetPidFileData] got PID string: %s", pidString)
+
+	processPID, err := strconv.Atoi(pidString)
+	if err != nil {
+		log.Printf("[GetPidFileData] could not convert pidString to int: %s", err.Error())
+		return 0
+	}
+
+	log.Printf("[GetPidFileData] got process PID = %d", processPID)
+	return processPID
 }

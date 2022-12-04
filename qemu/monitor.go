@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	runtime "github.com/lapuglisi/qemuctl/runtime"
@@ -79,7 +80,7 @@ func (monitor *QemuMonitor) GetPidFilePath() string {
 		monitor.Machine.RuntimeDirectory, runtime.RuntimeQemuPIDFileName)
 }
 
-func (monitor *QemuMonitor) GetPidFileData() (pidString string, err error) {
+func (monitor *QemuMonitor) GetPidFromPidFile() (procPid int, err error) {
 	var filePath string = monitor.GetPidFilePath()
 	var fileData []byte
 
@@ -87,12 +88,17 @@ func (monitor *QemuMonitor) GetPidFileData() (pidString string, err error) {
 
 	fileData, err = os.ReadFile(filePath)
 	if err != nil {
-		return "0", err
+		return 0, err
 	}
 
-	pidString = strings.TrimSpace(string(fileData))
+	pidString := strings.TrimSpace(string(fileData))
+	procPid, err = strconv.Atoi(pidString)
 
-	return pidString, nil
+	if err != nil {
+		return 0, err
+	}
+
+	return procPid, nil
 }
 
 func (monitor *QemuMonitor) GetControlSocket() (unix net.Conn, err error) {

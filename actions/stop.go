@@ -18,7 +18,7 @@ type StopAction struct {
 func (action *StopAction) Run(arguments []string) (err error) {
 	var machine *runtime.Machine
 
-	if len(arguments) < 1 {
+	if len(arguments) == 0 {
 		return fmt.Errorf("machine name is mandatory")
 	}
 
@@ -27,6 +27,11 @@ func (action *StopAction) Run(arguments []string) (err error) {
 	}
 
 	machine = runtime.NewMachine(action.machineName)
+
+	if !machine.Exists() {
+		return fmt.Errorf("machine '%s' does not exist", machine.Name)
+	}
+
 	qemuMonitor := qemuctl_qemu.NewQemuMonitor(machine)
 
 	fmt.Printf("[qemuctl] Stopping machine '%s'...", action.machineName)
@@ -34,14 +39,19 @@ func (action *StopAction) Run(arguments []string) (err error) {
 	err = qemuMonitor.SendShutdownCommand()
 	if err != nil {
 		fmt.Printf("\033[33m error!\033[0m\n")
-		machine.UpdateStatus(runtime.MachineStatusDegraded)
+		machine.QemuPid = 0
+		machine.SSHLocalPort = 0
+		machine.Status = runtime.MachineStatusDegraded
+		machine.UpdateData()
 		return err
 	}
 
 	// Now, update machine status
 	machine.QemuPid = 0
 	machine.SSHLocalPort = 0
-	machine.UpdateStatus(runtime.MachineStatusStopped)
+	machine.Status = runtime.MachineStatusStopped
+	machine.UpdateData()
+
 	fmt.Printf("\033[32m ok!\033[0m\n")
 
 	return nil

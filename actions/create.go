@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"strconv"
 
 	helpers "github.com/lapuglisi/qemuctl/helpers"
 	qemuctl_qemu "github.com/lapuglisi/qemuctl/qemu"
@@ -45,6 +44,7 @@ func (action *CreateAction) handleCreate() (err error) {
 	var configData *helpers.ConfigurationData = nil
 	var qemu *qemuctl_qemu.QemuCommand
 	var machine *runtime.Machine
+	var qemuPid int
 
 	err = nil
 
@@ -87,44 +87,29 @@ func (action *CreateAction) handleCreate() (err error) {
 	qemuMonitor := qemuctl_qemu.NewQemuMonitor(machine)
 	qemu = qemuctl_qemu.NewQemuCommand(configData, qemuMonitor)
 
-	log.Printf("[create] launching qemu")
-	err = qemu.Launch()
-	if err != nil {
+	/* Update machine status to 'created' */
+	{
 		machine.QemuPid = 0
 		machine.SSHLocalPort = 0
-		machine.UpdateStatus(runtime.MachineStatusDegraded)
+		machine.Status = runtime.MachineStatusCreated
+		machine.UpdateData()
+	}
+
+	log.Printf("[create] launching qemu")
+	qemuPid, err = qemu.Launch()
+	if err != nil {
+		fmt.Println("\033[33merror!\033[0m")
 		return err
 	} else {
-		procPid := 0
-		pidData, err := qemuMonitor.GetPidFileData()
-		if err == nil {
-			procPid, err = strconv.Atoi(pidData)
-			if err == nil {
-				log.Printf("[start] got machine pid: %d", procPid)
+		log.Printf("[create] got machine pid: %d", qemuPid)
 
-				log.Printf("[create] new machine: QemuPid is %d, SSHLocalPort is %d", procPid, configData.SSH.LocalPort)
-				machine.QemuPid = procPid
-				machine.SSHLocalPort = configData.SSH.LocalPort
-				machine.UpdateStatus(runtime.MachineStatusStarted)
+		log.Printf("[create] new machine: QemuPid is %d, SSHLocalPort is %d", qemuPid, configData.SSH.LocalPort)
+		machine.QemuPid = qemuPid
+		machine.SSHLocalPort = configData.SSH.LocalPort
+		machine.Status = runtime.MachineStatusRunning
+		machine.UpdateData()
 
-				fmt.Println("\033[32mok!\033[0m")
-			} else {
-				log.Printf("[start] could not convert pid string to int %s", err.Error())
-
-				machine.QemuPid = 0
-				machine.SSHLocalPort = 0
-				machine.UpdateStatus(runtime.MachineStatusStopped)
-				fmt.Println("\033[33mstopped!\033[0m")
-			}
-		} else {
-			log.Printf("[start] could not convert pid string to int: %s", err.Error())
-
-			machine.QemuPid = 0
-			machine.SSHLocalPort = 0
-			machine.UpdateStatus(runtime.MachineStatusStopped)
-
-			fmt.Println("\033[33mstopped!\033[0m")
-		}
+		fmt.Println("\033[32mok!\033[0m")
 	}
 
 	return nil
