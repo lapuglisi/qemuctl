@@ -12,8 +12,8 @@ import (
 )
 
 type CreateAction struct {
-	machineName string
-	configFile  string
+	machine    *runtime.Machine
+	configFile string
 }
 
 func (action *CreateAction) Run(arguments []string) (err error) {
@@ -56,22 +56,21 @@ func (action *CreateAction) handleCreate() (err error) {
 		return err
 	}
 
-	action.machineName = configData.Machine.MachineName
-	machine = runtime.NewMachine(action.machineName)
+	machine = runtime.NewMachine(configData.Machine.MachineName)
 
 	fmt.Printf("[qemuctl] Creating machine '%s' (%s).... ",
-		action.machineName, action.configFile)
+		machine.Name, action.configFile)
 
 	/* Check machine status */
 	if machine.Exists() {
 		fmt.Println("\033[31merror!\033[0m")
-		return fmt.Errorf("machine '%s' exists", action.machineName)
+		return fmt.Errorf("machine '%s' exists", machine.Name)
 	} else {
 		machine.CreateRuntime()
 	}
 
 	/* First, we update the config file for the machine and use it to create it */
-	log.Printf("[create] updating '%s' config file", action.machineName)
+	log.Printf("[create] updating '%s' config file", machine.Name)
 	err = machine.UpdateConfigFile(action.configFile)
 	if err != nil {
 		return err
@@ -98,23 +97,34 @@ func (action *CreateAction) handleCreate() (err error) {
 	} else {
 		procPid := 0
 		pidData, err := qemuMonitor.GetPidFileData()
-		if err != nil {
-			log.Printf("[create] could not get process pid: %s", err.Error())
-		} else {
+		if err == nil {
 			procPid, err = strconv.Atoi(pidData)
-			if err != nil {
-				log.Printf("[start] could not convert pid string to int %s", err.Error())
-			} else {
+			if err == nil {
 				log.Printf("[start] got machine pid: %d", procPid)
+
+				log.Printf("[create] new machine: QemuPid is %d, SSHLocalPort is %d", procPid, configData.SSH.LocalPort)
+				machine.QemuPid = procPid
+				machine.SSHLocalPort = configData.SSH.LocalPort
+				machine.UpdateStatus(runtime.MachineStatusStarted)
+
+				fmt.Println("\033[32mok!\033[0m")
+			} else {
+				log.Printf("[start] could not convert pid string to int %s", err.Error())
+
+				machine.QemuPid = 0
+				machine.SSHLocalPort = 0
+				machine.UpdateStatus(runtime.MachineStatusStopped)
+				fmt.Println("\033[33mstopped!\033[0m")
 			}
+		} else {
+			log.Printf("[start] could not convert pid string to int: %s", err.Error())
+
+			machine.QemuPid = 0
+			machine.SSHLocalPort = 0
+			machine.UpdateStatus(runtime.MachineStatusStopped)
+
+			fmt.Println("\033[33mstopped!\033[0m")
 		}
-
-		log.Printf("[create] new machine: QemuPid is %d, SSHLocalPort is %d", procPid, configData.SSH.LocalPort)
-		machine.QemuPid = procPid
-		machine.SSHLocalPort = configData.SSH.LocalPort
-		machine.UpdateStatus(runtime.MachineStatusStarted)
-
-		fmt.Println("\033[32mok!\033[0m")
 	}
 
 	return nil

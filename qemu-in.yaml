@@ -3,6 +3,7 @@ machine:
   type: q35
   accel: kvm
   enableKVM: true
+  cpu: host
   tpm:
     passthrough:
       enabled: false
@@ -51,6 +52,7 @@ display:
     disableTicketing: true
     password: somepass
     enableAgentMouse: true
+    openGL: true
 
 disks:
   cdrom: /path/to/cdrom.iso

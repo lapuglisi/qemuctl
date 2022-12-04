@@ -1,3 +1,6 @@
 ***** qemuctl/runtime
-* Add method MachineFromConfig
-** StartProcess returning different PID!
+** validate machine status through pid file
+** add statuses running && started
+--- when running with no daemonize:
++++ add signal handling to update machine status OR
++++ use process.wait to check for process exit signal

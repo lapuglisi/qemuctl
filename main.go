@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	actions "github.com/lapuglisi/qemuctl/actions"
@@ -14,11 +15,20 @@ func usage() {
 	fmt.Println("    qemuctl {start|stop|seila} OPTIONS")
 }
 
+func signalHandler(signal os.Signal) {
+	log.Printf("[main] received signal %s", signal.String())
+}
+
 func main() {
 	var err error
 
 	var execArgs []string = os.Args
 	var action string
+
+	if len(execArgs) < 2 {
+		usage()
+		os.Exit(1)
+	}
 
 	/* Initialize qemuctl */
 	err = runtime.SetupRuntimeData()
@@ -26,13 +36,10 @@ func main() {
 		fmt.Printf("[\033[31merror\033[0m] %s\n", err.Error())
 	}
 
-	if len(execArgs) < 2 {
-		usage()
-		os.Exit(1)
-	}
-
 	action = execArgs[1]
 	execArgs = execArgs[2:]
+
+	runtime.SetupSignalHandler(signalHandler)
 
 	fmt.Println("")
 

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 func init() {
@@ -57,4 +59,37 @@ func SetupRuntimeData() (err error) {
 	log.Println("qemuctl: setup runtime done")
 
 	return nil
+}
+
+func SetupSignalHandler(signalHandler func(signal os.Signal)) {
+
+	log.Println("[signals] setting up signal handler")
+	go func(handler func(os.Signal)) {
+		var osSignals chan (os.Signal) = make(chan os.Signal, 1)
+		var doLoop bool = true
+
+		log.Println("[signals] inside signal subroutine")
+
+		log.Println("[signals] installing signal notify")
+		signal.Notify(osSignals, syscall.SIGABRT, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+
+		for doLoop {
+			log.Println("[signals] waiting for some signal")
+			osSignal := <-osSignals
+
+			log.Printf("[signals] got signal %s", osSignal.String())
+			signalHandler(osSignal)
+
+			switch osSignal {
+			case syscall.SIGABRT, syscall.SIGINT, syscall.SIGKILL, syscall.SIGTERM:
+				{
+					doLoop = false
+				}
+			default:
+				{
+					// does nothing
+				}
+			}
+		}
+	}(signalHandler)
 }

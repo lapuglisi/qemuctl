@@ -18,6 +18,7 @@ type portForwards struct {
 type ConfigurationData struct {
 	Machine struct {
 		EnableKVM   bool   `yaml:"enableKVM"`
+		CPU         string `yaml:"cpuType"`
 		MachineName string `yaml:"name"`
 		MachineType string `yaml:"type"`
 		AccelType   string `yaml:"accel"`
@@ -34,7 +35,7 @@ type ConfigurationData struct {
 				ID         string `yaml:"id"`
 				CharDevice string `yaml:"charDevice"`
 			} `yaml:"emulator"`
-		} `yaml:"tmp"`
+		} `yaml:"tpm"`
 	} `yaml:"machine"`
 	RunAsDaemon bool   `yaml:"runAsDaemon"`
 	Memory      string `yaml:"memory"`
@@ -77,6 +78,7 @@ type ConfigurationData struct {
 			DisableTicketing bool   `yaml:"disableTicketing"`
 			Password         string `yaml:"password"`
 			EnableAgentMouse bool   `yaml:"enableAgentMouse"`
+			OpenGL           bool   `yaml:"openGL"`
 		} `yaml:"spice"`
 	} `yaml:"display"`
 	Boot struct {
@@ -103,6 +105,7 @@ func NewConfigData() (configData *ConfigurationData) {
 
 	configData.Machine.MachineType = "q35"
 	configData.Machine.AccelType = "hvm"
+	configData.Machine.CPU = "host"
 	configData.Machine.EnableKVM = true
 
 	configData.Machine.TPM.Passthrough.Enabled = false

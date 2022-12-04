@@ -14,9 +14,7 @@ func init() {
 }
 
 type StartAction struct {
-	machineName string
-	configFile  string
-	qemuBinary  string
+	machine *runtime.Machine
 }
 
 func (action *StartAction) Run(arguments []string) (err error) {
@@ -24,12 +22,12 @@ func (action *StartAction) Run(arguments []string) (err error) {
 	if len(arguments) < 1 {
 		return fmt.Errorf("machine name is mandatory")
 	}
-	action.machineName = arguments[0]
+	machineName := arguments[0]
 
-	fmt.Printf("[start] starting machine '%s'... ", action.machineName)
+	fmt.Printf("[start] starting machine '%s'... ", machineName)
 
 	/* Do proper handling */
-	err = action.handleStart()
+	err = action.handleStart(machineName)
 	if err != nil {
 		fmt.Println("\033[33;1merror!\033[0m")
 		return err
@@ -39,36 +37,34 @@ func (action *StartAction) Run(arguments []string) (err error) {
 	return nil
 }
 
-func (action *StartAction) handleStart() (err error) {
-	var machine *runtime.Machine
+func (action *StartAction) handleStart(machineName string) (err error) {
+	log.Printf("[start] starting machine '%s'", machineName)
+	action.machine = runtime.NewMachine(machineName)
 
-	log.Printf("[start] starting machine '%s'", action.machineName)
-	machine = runtime.NewMachine(action.machineName)
-
-	if !machine.Exists() {
-		return fmt.Errorf("machine '%s' dos not exist", action.machineName)
+	if !action.machine.Exists() {
+		return fmt.Errorf("machine '%s' dos not exist", action.machine.Name)
 	}
 
-	if machine.IsStarted() {
-		return fmt.Errorf("[start] machine '%s' is already started", action.machineName)
+	if action.machine.IsStarted() {
+		return fmt.Errorf("[start] machine '%s' is already started", action.machine.Name)
 	}
 
-	if machine.IsDegraded() {
+	if action.machine.IsDegraded() {
 		return fmt.Errorf("[start] cannot start a degraded machine")
 	}
 
 	/* in this release, starting a machine means creating it again */
-	log.Printf("[start] relaunching machine '%s' (%s)", machine.Name, machine.ConfigFile)
+	log.Printf("[start] relaunching machine '%s' (%s)", action.machine.Name, action.machine.ConfigFile)
 
-	log.Printf("[start] parsing config file '%s'", machine.ConfigFile)
-	configHandle := helpers.NewConfigHandler(machine.ConfigFile)
+	log.Printf("[start] parsing config file '%s'", action.machine.ConfigFile)
+	configHandle := helpers.NewConfigHandler(action.machine.ConfigFile)
 	configData, err := configHandle.ParseConfigFile()
 	if err != nil {
 		return err
 	}
 
 	log.Printf("[start] creating qemuMonitor instance")
-	qemuMonitor := qemuctl_qemu.NewQemuMonitor(machine)
+	qemuMonitor := qemuctl_qemu.NewQemuMonitor(action.machine)
 
 	log.Printf("[start] launching qemu command")
 	qemu := qemuctl_qemu.NewQemuCommand(configData, qemuMonitor)
@@ -77,21 +73,36 @@ func (action *StartAction) handleStart() (err error) {
 	if err == nil {
 		procPid := 0
 		pidString, err := qemuMonitor.GetPidFileData()
-		if err != nil {
-			log.Printf("[start] could not get process pid: %s", err.Error())
-		} else {
+		if err == nil {
 			procPid, err = strconv.Atoi(pidString)
-			if err != nil {
-				log.Printf("[start] could not convert pid string to int %s", err.Error())
-			} else {
+			if err == nil {
 				log.Printf("[start] got machine pid: %d", procPid)
+
+				action.machine.QemuPid = procPid
+				action.machine.SSHLocalPort = configData.SSH.LocalPort
+				action.machine.UpdateStatus(runtime.MachineStatusStarted)
+
+				fmt.Println("\033[32mok!\033[0m")
+			} else {
+				log.Printf("[start] could not convert pid string to int %s", err.Error())
+
+				action.machine.QemuPid = 0
+				action.machine.SSHLocalPort = 0
+				action.machine.UpdateStatus(runtime.MachineStatusStopped)
+
+				fmt.Println("\033[33mstopped!\033[0m")
 			}
+		} else {
+			log.Printf("[start] could not get process pid: %s", err.Error())
+
+			action.machine.QemuPid = 0
+			action.machine.SSHLocalPort = 0
+			action.machine.UpdateStatus(runtime.MachineStatusStopped)
+
+			fmt.Println("\033[33mstopped!\033[0m")
 		}
-		machine.QemuPid = procPid
-		machine.SSHLocalPort = configData.SSH.LocalPort
-		machine.UpdateStatus(runtime.MachineStatusStarted)
 	} else {
-		machine.UpdateStatus(runtime.MachineStatusDegraded)
+		action.machine.UpdateStatus(runtime.MachineStatusDegraded)
 	}
 
 	return err

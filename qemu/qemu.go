@@ -3,7 +3,8 @@ package qemuctl_qemu
 import (
 	"fmt"
 	"log"
-	"os"
+
+	//"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -69,13 +70,15 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 
 	var cd *config.ConfigurationData = qemu.Configuration
 
+	log.Printf("[debug::getQemuArgs] configData is [%v]", cd)
+
 	var machine *runtime.Machine = runtime.NewMachine(cd.Machine.MachineName)
 	var monitor *QemuMonitor = NewQemuMonitor(machine)
 
 	/* VNC Spec parser */
 	var vncRegex regexp.Regexp = *regexp.MustCompile(`[0-9\.]+:\d+`)
 
-	qemuArgs = append(qemuArgs, qemu.QemuPath)
+	// qemuArgs = append(qemuArgs, qemu.QemuPath)
 
 	/* Do the config stuff */
 	if cd.Machine.EnableKVM {
@@ -91,20 +94,25 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 
 		qemuArgs = qemu.appendQemuArg(qemuArgs, "-machine", machineSpec)
 
+		/* Add CPU spec */
+		qemuArgs = qemu.appendQemuArg(qemuArgs, "-cpu", cd.Machine.CPU)
+
 		/* TPM Specification, if any */
-		if cd.Machine.TPM.Passthrough.Enabled {
-			tpmSpec := fmt.Sprintf("passthrough,id=%s%s%s",
-				cd.Machine.TPM.Passthrough.ID,
-				qemu.getKeyValuePair(len(cd.Machine.TPM.Passthrough.Path) > 0, ",path", cd.Machine.TPM.Passthrough.Path),
-				qemu.getKeyValuePair(len(cd.Machine.TPM.Passthrough.CancelPath) > 0, ",cancel-path", cd.Machine.TPM.Passthrough.CancelPath))
+		if cd.Machine.TPM.Enabled {
+			if cd.Machine.TPM.Passthrough.Enabled {
+				tpmSpec := fmt.Sprintf("passthrough,id=%s%s%s",
+					cd.Machine.TPM.Passthrough.ID,
+					qemu.getKeyValuePair(len(cd.Machine.TPM.Passthrough.Path) > 0, ",path", cd.Machine.TPM.Passthrough.Path),
+					qemu.getKeyValuePair(len(cd.Machine.TPM.Passthrough.CancelPath) > 0, ",cancel-path", cd.Machine.TPM.Passthrough.CancelPath))
 
-			qemuArgs = qemu.appendQemuArg(qemuArgs, "-tpmdev", tpmSpec)
-		} else if cd.Machine.TPM.Emulator.Enabled {
-			tpmSpec := fmt.Sprintf("emulator,id=%s,chardev=%s",
-				cd.Machine.TPM.Emulator.ID,
-				cd.Machine.TPM.Emulator.CharDevice)
+				qemuArgs = qemu.appendQemuArg(qemuArgs, "-tpmdev", tpmSpec)
+			} else if cd.Machine.TPM.Emulator.Enabled {
+				tpmSpec := fmt.Sprintf("emulator,id=%s,chardev=%s",
+					cd.Machine.TPM.Emulator.ID,
+					cd.Machine.TPM.Emulator.CharDevice)
 
-			qemuArgs = qemu.appendQemuArg(qemuArgs, "-tpmdev", tpmSpec)
+				qemuArgs = qemu.appendQemuArg(qemuArgs, "-tpmdev", tpmSpec)
+			}
 		}
 	}
 
@@ -152,12 +160,13 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 		if cd.Display.Spice.Port <= 0 {
 			log.Printf("[getQemuArgs] spice is enable but spice.port is not defined")
 		} else {
-			spiceSpec := fmt.Sprintf("port=%d,tls-port=%d%s,disable-ticketing=%s,agent-mouse=%s,password=%s",
+			spiceSpec := fmt.Sprintf("port=%d,tls-port=%d%s,disable-ticketing=%s,agent-mouse=%s,password=%s,gl=%s",
 				cd.Display.Spice.Port, cd.Display.Spice.TLSPort,
 				qemu.getKeyValuePair(len(cd.Display.Spice.Address) > 0, ",addr", cd.Display.Spice.Address),
 				qemu.getBoolString(cd.Display.Spice.DisableTicketing, "on", "off"),
 				qemu.getBoolString(cd.Display.Spice.EnableAgentMouse, "on", "off"),
-				cd.Display.Spice.Password)
+				cd.Display.Spice.Password,
+				qemu.getBoolString(cd.Display.Spice.OpenGL, "on", "off"))
 
 			qemuArgs = qemu.appendQemuArg(qemuArgs, "-spice", spiceSpec)
 		}
@@ -260,7 +269,7 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 }
 
 func (qemu *QemuCommand) Launch() (err error) {
-	var procAttrs *os.ProcAttr = nil
+	// var procAttrs *os.ProcAttr = nil
 	var qemuArgs []string
 
 	qemuArgs, err = qemu.getQemuArgs()
@@ -275,42 +284,55 @@ func (qemu *QemuCommand) Launch() (err error) {
 
 	/* Actual execution of QEMU */
 	err = nil
-	procAttrs = &os.ProcAttr{
-		Dir: os.ExpandEnv("$HOME"),
-		Env: os.Environ(),
-		Files: []*os.File{
-			os.Stdin,
-			os.Stdout,
-			os.Stderr,
-		},
-		Sys: nil,
-	}
-
-	procHandle, err := os.StartProcess(qemu.QemuPath, qemuArgs, procAttrs)
-	if err == nil {
-		log.Printf("[qemu.launch] success: %v", procHandle)
-
-		procState, err := procHandle.Wait()
-		if err != nil {
-			log.Printf("[launch] waiting for processes failed: %s", err.Error())
-		} else {
-			if procState.Success() {
-				log.Printf("[launch] success on wait on process: %s", procState.String())
-
-				if qemu.Configuration.RunAsDaemon {
-					err = procHandle.Release()
-					if err != nil {
-						log.Printf("[launch] process release failed: %s", err.Error())
-					}
-				}
-			} else {
-				err = fmt.Errorf(procState.String())
-				log.Printf("[launch] waiting for processes failed: %s", err.Error())
-			}
+	/*
+		procAttrs = &os.ProcAttr{
+			Dir: os.ExpandEnv("$HOME"),
+			Env: os.Environ(),
+			Files: []*os.File{
+				nil,
+				nil,
+				os.Stderr,
+			},
+			Sys: nil,
 		}
-	} else {
-		log.Printf("[qemu.launch] some error ocurred: %s", err.Error())
+	*/
+
+	log.Printf("[launch] creating qemu command struct")
+	qemuCmd := exec.Command(qemu.QemuPath, qemuArgs...)
+
+	log.Printf("[launch] starting qemu command")
+	err = qemuCmd.Start()
+	if err != nil {
+		log.Printf("[launch] error starting command: %s", err.Error())
+		return err
 	}
+
+	log.Printf("[launch] waiting for qemu command to finish")
+	err = qemuCmd.Wait()
+	if err != nil {
+		log.Printf("[launch] waiting for qemu command failed: %s", err.Error())
+		cmdBytes, err := qemuCmd.CombinedOutput()
+
+		log.Printf("[launch] cmd output: [%s] [%s]", string(cmdBytes), err.Error())
+		qemuCmd.Process.Kill()
+		return err
+	}
+
+	log.Printf("[launch] qemu process state: %s", qemuCmd.ProcessState.String())
+
+	/*
+		procHandle, err := os.StartProcess(qemu.QemuPath, qemuArgs, procAttrs)
+		if err == nil {
+			log.Printf("[qemu.launch] success: %v", procHandle)
+
+			err := procHandle.Release()
+			if err != nil {
+				log.Printf("[launch] releasing the process failed: %s", err.Error())
+			}
+		} else {
+			log.Printf("[qemu.launch] some error ocurred: %s", err.Error())
+		}
+	*/
 
 	return err
 }
