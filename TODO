@@ -1,6 +1,4 @@
 ***** qemuctl/runtime
-** validate machine status through pid file
-** add statuses running && started
---- when running with no daemonize:
-+++ add signal handling to update machine status OR
-+++ use process.wait to check for process exit signal
+** validate machine status through pid file - OK
+** add in the future options to define the cpu topology (sockets, core, etc)
+** add audiodev option (when needed; mostly GUI guests)

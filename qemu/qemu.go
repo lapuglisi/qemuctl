@@ -3,6 +3,7 @@ package qemuctl_qemu
 import (
 	"fmt"
 	"log"
+	"os"
 
 	//"os"
 	"os/exec"
@@ -257,6 +258,15 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 		// -- Otherwise, we finally add hard disk info
 		qemuArgs = append(qemuArgs, cd.Disks.HardDisk)
 	}
+
+	/* This machine is supposed to run as ENV(USER), even if launched with sudo */
+	envUser := os.ExpandEnv("$USER")
+	if len(envUser) > 0 {
+		qemuArgs = qemu.appendQemuArg(qemuArgs, "-runas", os.ExpandEnv("$USER"))
+	}
+
+	/* Add RTC (guest clock) spec */
+	qemuArgs = qemu.appendQemuArg(qemuArgs, "-rtc", "localtime,clock=host")
 
 	/* Add a monitor specfication to be able to operate on the machine */
 	qemuArgs = qemu.appendQemuArg(qemuArgs, "-chardev", monitor.GetChardevSpec())
