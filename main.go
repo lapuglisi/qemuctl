@@ -41,8 +41,7 @@ func main() {
 
 	runtime.SetupSignalHandler(signalHandler)
 
-	fmt.Println("")
-
+	fmt.Println()
 	switch action {
 	case "create":
 		{

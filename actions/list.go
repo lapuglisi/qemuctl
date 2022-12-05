@@ -9,9 +9,32 @@ import (
 )
 
 type ListAction struct {
+	showHeadings bool
+	namesOnly    bool
 }
 
 func (action *ListAction) Run(arguments []string) (err error) {
+	action.showHeadings = true
+	action.namesOnly = false
+
+	for _, _value := range arguments {
+		switch _value {
+		case "--no-headings":
+			{
+				action.showHeadings = false
+				break
+			}
+		case "--names-only":
+			{
+				action.namesOnly = true
+				break
+			}
+		default:
+			{
+				fmt.Printf("\033[33mwarning\033[0m: invalid option '%s'\n", _value)
+			}
+		}
+	}
 
 	qemuctlDir := runtime.GetMachinesBaseDir()
 
@@ -21,8 +44,17 @@ func (action *ListAction) Run(arguments []string) (err error) {
 		return err
 	}
 
-	fmt.Printf("%-32s %-16s %-16s %-12s\n", "MACHINE", "STATUS", "SSH", "QEMU PID")
-	fmt.Printf("%s\n", strings.Repeat("-", 76))
+	if action.showHeadings {
+		headings := ""
+		if action.namesOnly {
+			headings = fmt.Sprintf("%-32s", "MACHINE")
+		} else {
+			headings = fmt.Sprintf("%-32s %-16s %-16s %-12s", "MACHINE", "STATUS", "SSH", "QEMU PID")
+		}
+		fmt.Println(headings)
+		fmt.Printf("%s\n", strings.Repeat("-", len(headings)))
+	}
+
 	for _, _value := range dirEntries {
 		if _value.Type().IsDir() {
 			machine := action.getMachine(_value.Name())
@@ -39,8 +71,12 @@ func (action *ListAction) Run(arguments []string) (err error) {
 				sshString = fmt.Sprintf("127.0.0.1:%d", machine.SSHLocalPort)
 			}
 
-			fmt.Printf("%-32s %-16s %-16s %-12s\n",
-				machine.Name, machine.Status, sshString, qemuPid)
+			if action.namesOnly {
+				fmt.Println(machine.Name)
+			} else {
+				fmt.Printf("%-32s %-16s %-16s %-12s\n",
+					machine.Name, machine.Status, sshString, qemuPid)
+			}
 		}
 	}
 

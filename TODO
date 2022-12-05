@@ -2,3 +2,8 @@
 ** validate machine status through pid file - OK
 ** add in the future options to define the cpu topology (sockets, core, etc)
 ** add audiodev option (when needed; mostly GUI guests)
+***** qemuctl/actions
+-- perhaps create some 'reflect' feature to use action names and get respective action
+-- OR
+-- create a base action and derive everything else from them (golang is not actually fond of inheritance, like c++)
+--- for that, we could set the 'Run' method of the base action as type 'func ([]string) error'
