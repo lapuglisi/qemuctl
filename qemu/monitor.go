@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	runtime "github.com/lapuglisi/qemuctl/runtime"
 )
@@ -20,6 +21,7 @@ func init() {
 const (
 	QemuMonitorSocketFileName string = "qemu-monitor.sock"
 	QemuMonitorDefaultID      string = "qemu-mon-qmp"
+	QemuMonitorSecondsInNano  int64  = (1 * 1000 * 1000 * 1000) // 1 * 10^9
 )
 
 type QemuMonitor struct {
@@ -99,6 +101,48 @@ func (monitor *QemuMonitor) GetPidFromPidFile() (procPid int, err error) {
 	}
 
 	return procPid, nil
+}
+
+func (monitor *QemuMonitor) WaitForPid() (procPid int, err error) {
+	var filePath string = monitor.GetPidFilePath()
+	var fileData []byte
+	var sleepNanos time.Duration = time.Duration(QemuMonitorSecondsInNano)
+
+	for {
+		log.Printf("[WaitForPid] stating file '%s'", filePath)
+		_, err := os.Stat(filePath)
+		if err == nil {
+			break
+		}
+
+		if os.IsNotExist(err) {
+			log.Printf("[WaitForPid] '%s' is not there yet. sleeping for %f second(s).",
+				filePath, sleepNanos.Seconds())
+			time.Sleep(sleepNanos)
+
+			err = nil
+		}
+	}
+
+	if err != nil {
+		return 0, err
+	}
+	/* now read filePath */
+	fileData, err = os.ReadFile(filePath)
+	if err != nil {
+		log.Printf("[WaitForPid] error while reading file: %s", err.Error())
+		return 0, err
+	}
+
+	pidString := strings.TrimSpace(string(fileData))
+	procPid, err = strconv.Atoi(pidString)
+	if err != nil {
+		log.Printf("[WaitForPid] error while converting string '%s': %s", pidString, err.Error())
+	} else {
+		log.Printf("[WaitForPid] got pid %d", procPid)
+	}
+
+	return procPid, err
 }
 
 func (monitor *QemuMonitor) GetControlSocket() (unix net.Conn, err error) {

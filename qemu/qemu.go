@@ -260,13 +260,15 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 	}
 
 	/* This machine is supposed to run as ENV(USER), even if launched with sudo */
-	envUser := os.ExpandEnv("$USER")
-	if len(envUser) > 0 {
-		qemuArgs = qemu.appendQemuArg(qemuArgs, "-runas", os.ExpandEnv("$USER"))
-	}
+	/*
+		envUser := os.ExpandEnv("$USER")
+		if len(envUser) > 0 {
+			qemuArgs = qemu.appendQemuArg(qemuArgs, "-runas", os.ExpandEnv("$USER"))
+		}
+	*/
 
 	/* Add RTC (guest clock) spec */
-	qemuArgs = qemu.appendQemuArg(qemuArgs, "-rtc", "localtime,clock=host")
+	qemuArgs = qemu.appendQemuArg(qemuArgs, "-rtc", "base=localtime,clock=host")
 
 	/* Add a monitor specfication to be able to operate on the machine */
 	qemuArgs = qemu.appendQemuArg(qemuArgs, "-chardev", monitor.GetChardevSpec())
@@ -279,7 +281,9 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 }
 
 func (qemu *QemuCommand) Launch() (processPid int, err error) {
-	// var procAttrs *os.ProcAttr = nil
+	var procAttrs *os.ProcAttr = nil
+	var procState *os.ProcessState = nil
+	var procPid int
 	var qemuArgs []string
 
 	qemuArgs, err = qemu.getQemuArgs()
@@ -287,7 +291,7 @@ func (qemu *QemuCommand) Launch() (processPid int, err error) {
 		return 0, err
 	}
 
-	// TODO: use the log feature
+	// TODO: use the log feature; DONE
 	log.Println("[QemuCommand::Launch] Executing QEMU with:")
 	log.Printf("qemu_path ....... %s\n", qemu.QemuPath)
 	log.Printf("qemu_args ....... %s\n", strings.Join(qemuArgs, " "))
@@ -296,33 +300,44 @@ func (qemu *QemuCommand) Launch() (processPid int, err error) {
 	err = nil
 
 	log.Printf("[launch] creating qemu command struct")
-	qemuCmd := exec.Command(qemu.QemuPath, qemuArgs...)
+	procAttrs = &os.ProcAttr{
+		Dir: os.ExpandEnv("$HOME"),
+		Env: os.Environ(),
+		Files: []*os.File{
+			os.Stdin,
+			os.Stdout,
+			os.Stderr,
+		},
+		Sys: nil,
+	}
+	execArgs := make([]string, 0)
+	execArgs = append(execArgs, qemu.QemuPath)
+	execArgs = append(execArgs, qemuArgs...)
 
-	log.Printf("[launch] starting qemu command")
-	err = qemuCmd.Start()
+	log.Printf("[launch] starting qemu process")
+	qemuProcess, err := os.StartProcess(qemu.QemuPath, execArgs, procAttrs)
 	if err != nil {
-		log.Printf("[launch] error starting command: %s", err.Error())
+		log.Printf("[launch] error starting process: %s", err.Error())
 		return 0, err
 	}
 
-	log.Printf("[launch] waiting for qemu command to finish")
-	err = qemuCmd.Wait()
-	if err != nil {
-		log.Printf("[launch] waiting for qemu command failed: %s", err.Error())
-		cmdBytes, err := qemuCmd.CombinedOutput()
+	log.Printf("[launch] waiting for qemu process to finish")
 
-		log.Printf("[launch] cmd output: [%s] [%s]", string(cmdBytes), err.Error())
-		qemuCmd.Process.Kill()
-		return 0, err
+	if !qemu.Configuration.RunAsDaemon {
+		procState, err = qemuProcess.Wait()
+		if err != nil {
+			log.Printf("[launch] waiting for qemu command failed: %s (exit code: %d)",
+				err.Error(), procState.ExitCode())
+
+			qemuProcess.Kill()
+			return 0, err
+		}
+
+		log.Printf("[launch] qemu process state: %s", procState.String())
+		procPid, err = qemu.Monitor.GetPidFromPidFile()
+	} else {
+		procPid, err = qemu.Monitor.WaitForPid()
 	}
 
-	log.Printf("[launch] qemu process state: %s", qemuCmd.ProcessState.String())
-
-	procPid, err := qemu.Monitor.GetPidFromPidFile()
-
-	if err != nil {
-		return 0, nil
-	}
-
-	return procPid, nil
+	return procPid, err
 }
