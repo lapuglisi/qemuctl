@@ -84,6 +84,7 @@ type ConfigurationData struct {
 	Boot struct {
 		KernelPath     string `yaml:"kernelPath"`
 		RamdiskPath    string `yaml:"ramdiskPath"`
+		KernelArgs     string `yaml:"kernelArgs"`
 		BiosFile       string `yaml:"biosFile"`
 		EnableBootMenu bool   `yaml:"enableBootMenu"`
 		BootOrder      string `yaml:"bootOrder"`

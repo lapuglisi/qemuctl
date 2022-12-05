@@ -18,20 +18,22 @@ func init() {
 // Machine constants
 const (
 	MachineBaseDirectoryName string = "machines"
-	MachineDataFileName      string = "machine-data.json"
 	MachineStatusCreated     string = "created"
 	MachineStatusStarted     string = "started"
 	MachineStatusRunning     string = "running"
 	MachineStatusStopped     string = "stopped"
 	MachineStatusDegraded    string = "degraded"
 	MachineStatusUnknown     string = "unknown"
+	MachineDataFileName      string = "machine-data.json"
 	MachineConfigFileName    string = "config.yaml"
+	MachineBiosFileName      string = "bios-file.bin"
 )
 
 type MachineData struct {
 	QemuPid      int    `json:"qemuProcessPID"`
 	State        string `json:"machineState"`
 	SSHLocalPort int    `json:"sshLocalPort"`
+	BiosFile     string `json:"biosFile"`
 }
 
 type Machine struct {
@@ -41,6 +43,7 @@ type Machine struct {
 	SSHLocalPort     int
 	RuntimeDirectory string
 	ConfigFile       string
+	BiosFile         string
 	initialized      bool
 }
 
@@ -55,6 +58,7 @@ func NewMachine(machineName string) (machine *Machine) {
 		QemuPid:      0,
 		State:        MachineStatusUnknown,
 		SSHLocalPort: 0,
+		BiosFile:     "",
 	}
 
 	fileData, err := os.ReadFile(dataFile)
@@ -73,6 +77,7 @@ func NewMachine(machineName string) (machine *Machine) {
 		Status:           machineData.State,
 		QemuPid:          machineData.QemuPid,
 		SSHLocalPort:     machineData.SSHLocalPort,
+		BiosFile:         machineData.BiosFile,
 		RuntimeDirectory: runtimeDirectory,
 		ConfigFile:       configFile,
 		initialized:      true,
@@ -82,6 +87,10 @@ func NewMachine(machineName string) (machine *Machine) {
 	if machine.IsRunning() {
 		log.Printf("[machine] checking for pid file")
 		machine.QemuPid = machine.GetPidFileData()
+
+		if machine.QemuPid <= 0 && machineData.QemuPid > 0 {
+			machine.QemuPid = machineData.QemuPid
+		}
 
 		if machine.QemuPid > 0 {
 			procHandle, err := os.FindProcess(machine.QemuPid)
@@ -189,6 +198,7 @@ func (m *Machine) UpdateData() (err error) {
 		QemuPid:      m.QemuPid,
 		SSHLocalPort: m.SSHLocalPort,
 		State:        m.Status,
+		BiosFile:     m.BiosFile,
 	}
 
 	switch m.Status {
@@ -239,6 +249,39 @@ func (m *Machine) UpdateConfigFile(sourcePath string) (err error) {
 	_, err = io.Copy(targetFile, sourceFile)
 
 	return err
+}
+
+func (m *Machine) MakeBiosFileCopy(sourcePath string) (err error) {
+	var machineBios string = m.GetBiosFilePath()
+	var sourceData []byte
+
+	m.BiosFile = ""
+
+	if !FileExists(sourcePath) {
+		return fmt.Errorf("file '%s' dos not exist", sourcePath)
+	}
+
+	/* Read source file data */
+	log.Printf("[MakeBiosFileCopy] reading source file '%s'", sourcePath)
+	sourceData, err = os.ReadFile(sourcePath)
+	if err != nil {
+		log.Printf("[MakeBiosFileCopy] error while reading '%s': %s", sourcePath, err.Error())
+		return err
+	}
+
+	log.Printf("[MakeBiosFileCopy] writing target file '%s'", machineBios)
+	err = os.WriteFile(machineBios, sourceData, 0755)
+	if err != nil {
+		log.Printf("[MakeBiosFileCopy] error while writing '%s': %s", machineBios, err.Error())
+		return err
+	}
+
+	m.BiosFile = machineBios
+	return nil
+}
+
+func (m *Machine) GetBiosFilePath() string {
+	return fmt.Sprintf("%s/%s", m.RuntimeDirectory, MachineBiosFileName)
 }
 
 func (m *Machine) GetMachineFileData(fileName string) (data []byte, err error) {

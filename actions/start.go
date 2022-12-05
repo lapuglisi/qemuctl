@@ -70,6 +70,14 @@ func (action *StartAction) handleStart(machineName string) (err error) {
 	log.Printf("[start] launching qemu command")
 	qemu := qemuctl_qemu.NewQemuCommand(configData, qemuMonitor)
 
+	/*
+	 * Update machine status to 'started'
+	 */
+	action.machine.QemuPid = 0
+	action.machine.SSHLocalPort = 0
+	action.machine.Status = runtime.MachineStatusStarted
+	action.machine.UpdateData()
+
 	qemuPid, err = qemu.Launch()
 	if err == nil {
 		log.Printf("[start] got machine pid: %d", qemuPid)
@@ -78,8 +86,6 @@ func (action *StartAction) handleStart(machineName string) (err error) {
 		action.machine.SSHLocalPort = configData.SSH.LocalPort
 		action.machine.Status = runtime.MachineStatusRunning
 		action.machine.UpdateData()
-
-		fmt.Println("\033[32mok!\033[0m")
 	} else {
 		action.machine.QemuPid = 0
 		action.machine.SSHLocalPort = 0

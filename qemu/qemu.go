@@ -79,8 +79,6 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 	/* VNC Spec parser */
 	var vncRegex regexp.Regexp = *regexp.MustCompile(`[0-9\.]+:\d+`)
 
-	// qemuArgs = append(qemuArgs, qemu.QemuPath)
-
 	/* Do the config stuff */
 	if cd.Machine.EnableKVM {
 		qemuArgs = append(qemuArgs, "-enable-kvm")
@@ -174,15 +172,34 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 	}
 
 	/**
-	 * BIOS and Boot habling
+	 * BIOS and Boot handling
 	 */
-	if len(cd.Boot.KernelPath) > 0 && len(cd.Boot.RamdiskPath) > 0 {
+	if len(cd.Boot.KernelPath) > 0 {
 		// Do not use biosFile or boot related stuff. Boot directly to kernel
+
+		log.Printf("[qemuArgs] using kernel image '%s'", cd.Boot.KernelPath)
 		qemuArgs = qemu.appendQemuArg(qemuArgs, "-kernel", cd.Boot.KernelPath)
-		qemuArgs = qemu.appendQemuArg(qemuArgs, "-initrd", cd.Boot.RamdiskPath)
+
+		if len(cd.Boot.RamdiskPath) > 0 {
+			log.Printf("[qemuArgs] using ramdisk image '%s'", cd.Boot.RamdiskPath)
+			qemuArgs = qemu.appendQemuArg(qemuArgs, "-initrd", cd.Boot.RamdiskPath)
+		}
+
+		if len(cd.Boot.KernelArgs) > 0 {
+			log.Printf("[qemuArgs] using kernel args '%s'", cd.Boot.KernelArgs)
+			qemuArgs = qemu.appendQemuArg(qemuArgs, "-append", fmt.Sprintf("'%s'", cd.Boot.KernelArgs))
+		}
 	} else {
 		if len(cd.Boot.BiosFile) > 0 {
-			qemuArgs = qemu.appendQemuArg(qemuArgs, "-bios", cd.Boot.BiosFile)
+			// TODO: should be using -drive if=pflash,format=raw,file=/copy/of/OVMF.fd | read-write
+			/*
+			 1. Copy cd.Boot.BiosFile to machine's directory
+			 2. Use it with -drive if=pflash,format=raw,file=/copy/of/OVMF.fd
+			*/
+			if err = machine.MakeBiosFileCopy(cd.Boot.BiosFile); err == nil {
+				qemuArgs = qemu.appendQemuArg(qemuArgs, "-drive",
+					fmt.Sprintf("if=pflash,format=raw,file=%s", machine.BiosFile))
+			}
 		}
 
 		// -- Boot menu & Boot order (exclusive)
@@ -259,14 +276,6 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 		qemuArgs = append(qemuArgs, cd.Disks.HardDisk)
 	}
 
-	/* This machine is supposed to run as ENV(USER), even if launched with sudo */
-	/*
-		envUser := os.ExpandEnv("$USER")
-		if len(envUser) > 0 {
-			qemuArgs = qemu.appendQemuArg(qemuArgs, "-runas", os.ExpandEnv("$USER"))
-		}
-	*/
-
 	/* Add RTC (guest clock) spec */
 	qemuArgs = qemu.appendQemuArg(qemuArgs, "-rtc", "base=localtime,clock=host")
 
@@ -334,7 +343,7 @@ func (qemu *QemuCommand) Launch() (processPid int, err error) {
 		}
 
 		log.Printf("[launch] qemu process state: %s", procState.String())
-		procPid, err = qemu.Monitor.GetPidFromPidFile()
+		procPid = procState.Pid()
 	} else {
 		procPid, err = qemu.Monitor.WaitForPid()
 	}

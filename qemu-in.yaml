@@ -62,6 +62,7 @@ disks:
 boot:
   kernelPath: /path/to/bzImage
   ramdiskPath: /path/to/initrd
+  kernelArgs:
   biosFile: /path/to/bios.bin
   enableBootMenu: false
   bootOrder: cdan

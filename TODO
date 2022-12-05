@@ -1,4 +1,10 @@
+*** qemuctl/boot
+!!! UEFI boot: make a copy of OVMF.whatever to machine's directory and use
+it as a read-write pflash
+
 ***** qemuctl/runtime
+!! Log rotation
+
 ** validate machine status through pid file - OK
 ** add in the future options to define the cpu topology (sockets, core, etc)
 ** add audiodev option (when needed; mostly GUI guests)

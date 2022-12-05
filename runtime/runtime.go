@@ -61,6 +61,12 @@ func SetupRuntimeData() (err error) {
 	return nil
 }
 
+func FileExists(filePath string) (yes bool) {
+	info, err := os.Stat(filePath)
+
+	return (err == nil && !info.IsDir())
+}
+
 func SetupSignalHandler(signalHandler func(signal os.Signal)) {
 
 	log.Println("[signals] setting up signal handler")

@@ -21,7 +21,6 @@ func init() {
 const (
 	QemuMonitorSocketFileName string = "qemu-monitor.sock"
 	QemuMonitorDefaultID      string = "qemu-mon-qmp"
-	QemuMonitorSecondsInNano  int64  = (1 * 1000 * 1000 * 1000) // 1 * 10^9
 )
 
 type QemuMonitor struct {
@@ -106,7 +105,7 @@ func (monitor *QemuMonitor) GetPidFromPidFile() (procPid int, err error) {
 func (monitor *QemuMonitor) WaitForPid() (procPid int, err error) {
 	var filePath string = monitor.GetPidFilePath()
 	var fileData []byte
-	var sleepNanos time.Duration = time.Duration(QemuMonitorSecondsInNano)
+	var sleepNanos time.Duration = time.Duration(500 * 1000 * 1000) // 500 milliseconds
 
 	for {
 		log.Printf("[WaitForPid] stating file '%s'", filePath)
