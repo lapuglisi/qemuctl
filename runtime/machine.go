@@ -103,7 +103,7 @@ func NewMachine(machineName string) (machine *Machine) {
 		if machine.QemuPid > 0 {
 			procHandle, err := os.FindProcess(machine.QemuPid)
 			if err == nil {
-				err = procHandle.Signal(syscall.SIGCONT)
+				err = procHandle.Signal(syscall.SIGHUP)
 			}
 			if err != nil {
 				log.Printf("[machine] looks like the process %d is not there (%s). updating machine status",
