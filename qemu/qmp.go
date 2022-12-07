@@ -89,7 +89,7 @@ func (command *QmpBasicCommand) Execute(socket net.Conn) (result *QmpBasicResult
 
 	/* Send command data to socket */
 	log.Printf("[QmpCommand] execute: sending command to socket")
-	nBytes, err = socket.Write(jsonBytes)
+	_, err = socket.Write(jsonBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -195,6 +195,6 @@ func (event *QmpEventResult) ReadEvent(socket net.Conn) (err error) {
 
 	log.Printf("[ReadEvent] received from socket: [%s]", string(jsonData))
 
-	err = json.Unmarshal(jsonData, &event)
-	return err
+	json.Unmarshal(jsonData, &event)
+	return nil
 }

@@ -27,7 +27,7 @@ func (action *DestroyAction) Run(arguments []string) (err error) {
 		return fmt.Errorf("machine %s dos not exist", action.machineName)
 	}
 
-	if machine.IsStarted() {
+	if machine.IsRunning() || machine.IsStarted() {
 		fmt.Printf("[qemuctl] \033[33mwarning\033[0m: machine '%s' is started, cannot destroy!\n", action.machineName)
 		return nil
 	} else {

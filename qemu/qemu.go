@@ -73,8 +73,8 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 
 	log.Printf("[debug::getQemuArgs] configData is [%v]", cd)
 
-	var machine *runtime.Machine = runtime.NewMachine(cd.Machine.MachineName)
-	var monitor *QemuMonitor = NewQemuMonitor(machine)
+	var machine *runtime.Machine = qemu.Monitor.Machine
+	var monitor *QemuMonitor = qemu.Monitor
 
 	/* VNC Spec parser */
 	var vncRegex regexp.Regexp = *regexp.MustCompile(`[0-9\.]+:\d+`)

@@ -198,6 +198,7 @@ func (monitor *QemuMonitor) QueryStatus() (result *QmpQueryStatusResult, err err
 func (monitor *QemuMonitor) SendShutdownCommand() (err error) {
 	var unix net.Conn
 	var shutdownCommand QmpBasicCommand
+	var basicResult *QmpBasicResult
 
 	log.Printf("[SendShutdownCommand] initializing socket")
 	unix, err = monitor.GetControlSocket()
@@ -210,10 +211,12 @@ func (monitor *QemuMonitor) SendShutdownCommand() (err error) {
 	shutdownCommand = QmpBasicCommand{
 		Command: QmpSystemPowerdownCommand,
 	}
-	_, err = shutdownCommand.Execute(unix)
+	basicResult, err = shutdownCommand.Execute(unix)
 	if err != nil {
 		return err
 	}
+
+	log.Printf("[SendShutdownCommand] got QmpBasicResult [%v]", basicResult)
 
 	/* Now read incoming events */
 	err = nil

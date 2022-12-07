@@ -55,6 +55,12 @@ func main() {
 			err = action.Run(execArgs)
 			break
 		}
+	case "kill":
+		{
+			action := actions.KillAction{}
+			err = action.Run(execArgs)
+			break
+		}
 	case "start":
 		{
 			action := actions.StartAction{}

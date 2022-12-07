@@ -61,27 +61,35 @@ func NewMachine(machineName string) (machine *Machine) {
 		BiosFile:     "",
 	}
 
+	machine = &Machine{
+		Name:             machineName,
+		Status:           MachineStatusUnknown,
+		QemuPid:          0,
+		SSHLocalPort:     0,
+		BiosFile:         "",
+		RuntimeDirectory: runtimeDirectory,
+		ConfigFile:       configFile,
+		initialized:      false,
+	}
+
 	fileData, err := os.ReadFile(dataFile)
 	if err != nil {
 		log.Printf("error: could not open data file: %s\n", err.Error())
+		return machine
 	} else {
 		err = json.Unmarshal(fileData, &machineData)
 		if err != nil {
 			log.Printf("[machine] could not obtain machine data: %s", err.Error())
-			return nil
+			return machine
 		}
 	}
 
-	machine = &Machine{
-		Name:             machineName,
-		Status:           machineData.State,
-		QemuPid:          machineData.QemuPid,
-		SSHLocalPort:     machineData.SSHLocalPort,
-		BiosFile:         machineData.BiosFile,
-		RuntimeDirectory: runtimeDirectory,
-		ConfigFile:       configFile,
-		initialized:      true,
-	}
+	log.Printf("[NewMachine] got machine data: [%v]", machineData)
+
+	machine.BiosFile = machineData.BiosFile
+	machine.QemuPid = machineData.QemuPid
+	machine.SSHLocalPort = machineData.SSHLocalPort
+	machine.Status = machineData.State
 
 	/* Make sure to check if qemu's process is actually running */
 	if machine.IsRunning() {
@@ -121,7 +129,7 @@ func NewMachine(machineName string) (machine *Machine) {
 
 func (m *Machine) Exists() bool {
 	fileInfo, err := os.Stat(m.RuntimeDirectory)
-	if os.IsNotExist(err) {
+	if err != nil {
 		return false
 	}
 
@@ -134,28 +142,13 @@ func (m *Machine) Exists() bool {
 
 func (m *Machine) Destroy() bool {
 	var err error
-	var dataFile string = fmt.Sprintf("%s/%s", m.RuntimeDirectory, MachineDataFileName)
-	var configFile string = fmt.Sprintf("%s/%s", m.RuntimeDirectory, MachineConfigFileName)
 
 	log.Printf("qemuctl: destroying machine %s\n", m.Name)
 
-	/*
-		err := os.RemoveAll(m.RuntimeDirectory)
-	*/
-	// IMPORTANT: Remove only qemuctl files
-	log.Printf("[machine::destroy] removing data file '%s'", dataFile)
-	err = os.Remove(dataFile)
+	err = os.RemoveAll(m.RuntimeDirectory)
 
-	if err == nil {
-		log.Printf("[machine::destroy] removing config file '%s'", configFile)
-		err = os.Remove(configFile)
-
-		if err != nil {
-			log.Printf("[machine::destroy] error while removing '%s': %s", configFile, err.Error())
-		}
-
-	} else {
-		log.Printf("[machine::destroy] error while removing '%s': %s", dataFile, err.Error())
+	if err != nil {
+		log.Printf("[machine::destroy] error while removing '%s': %s", m.RuntimeDirectory, err.Error())
 	}
 
 	return err == nil
