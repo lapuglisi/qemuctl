@@ -75,16 +75,24 @@ func (action *StartAction) handleStart(machineName string) (err error) {
 	 */
 	action.machine.QemuPid = 0
 	action.machine.SSHLocalPort = 0
-	action.machine.Status = runtime.MachineStatusStarted
+	action.machine.Status = runtime.MachineStatusRunning
 	action.machine.UpdateData()
 
 	qemuPid, err = qemu.Launch()
 	if err == nil {
 		log.Printf("[start] got machine pid: %d", qemuPid)
 
-		action.machine.QemuPid = qemuPid
-		action.machine.SSHLocalPort = configData.SSH.LocalPort
-		action.machine.Status = runtime.MachineStatusRunning
+		log.Printf("[start] checking if process #%d is alive..", qemuPid)
+		if !configData.RunAsDaemon && !qemu.IsActiveProcess(qemuPid) {
+			action.machine.QemuPid = 0
+			action.machine.SSHLocalPort = 0
+			action.machine.Status = runtime.MachineStatusStopped
+		} else {
+			action.machine.QemuPid = qemuPid
+			action.machine.SSHLocalPort = configData.SSH.LocalPort
+			action.machine.Status = runtime.MachineStatusRunning
+		}
+
 		action.machine.UpdateData()
 	} else {
 		action.machine.QemuPid = 0

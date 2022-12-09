@@ -1,6 +1,7 @@
-*** qemuctl/boot
-!!! UEFI boot: make a copy of OVMF.whatever to machine's directory and use
-it as a read-write pflash
+*** qemuctl / create
+change status to running when err = StartProcess == nil, for foreground machines
+- then, after proc.Wait, check if Proc.Pid is still there. If so, leave it 'running'. Otherwise, change it to 'stopped'
+
 
 ***** qemuctl/runtime
 !! Log rotation
@@ -8,6 +9,7 @@ it as a read-write pflash
 ** validate machine status through pid file - OK
 ** add in the future options to define the cpu topology (sockets, core, etc)
 ** add audiodev option (when needed; mostly GUI guests)
+
 ***** qemuctl/actions
 -- perhaps create some 'reflect' feature to use action names and get respective action
 -- OR

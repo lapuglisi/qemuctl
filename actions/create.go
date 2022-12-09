@@ -91,7 +91,7 @@ func (action *CreateAction) handleCreate() (err error) {
 	{
 		machine.QemuPid = 0
 		machine.SSHLocalPort = 0
-		machine.Status = runtime.MachineStatusCreated
+		machine.Status = runtime.MachineStatusRunning
 		machine.UpdateData()
 	}
 
@@ -103,12 +103,20 @@ func (action *CreateAction) handleCreate() (err error) {
 	} else {
 		log.Printf("[create] got machine pid: %d", qemuPid)
 
-		log.Printf("[create] new machine: QemuPid is %d, SSHLocalPort is %d", qemuPid, configData.SSH.LocalPort)
-		machine.QemuPid = qemuPid
-		machine.SSHLocalPort = configData.SSH.LocalPort
-		machine.Status = runtime.MachineStatusRunning
-		machine.UpdateData()
+		log.Printf("[create] i'm now checking if PID %d is still active...", qemuPid)
+		if !configData.RunAsDaemon && !qemu.IsActiveProcess(qemuPid) {
+			log.Printf("[create] process #%d is not alive.", qemuPid)
+			machine.QemuPid = 0
+			machine.SSHLocalPort = 0
+			machine.Status = runtime.MachineStatusStopped
+		} else {
+			log.Printf("[create] new machine: QemuPid is %d, SSHLocalPort is %d", qemuPid, configData.SSH.LocalPort)
+			machine.QemuPid = qemuPid
+			machine.SSHLocalPort = configData.SSH.LocalPort
+			machine.Status = runtime.MachineStatusRunning
+		}
 
+		machine.UpdateData()
 		fmt.Println("\033[32mok!\033[0m")
 	}
 

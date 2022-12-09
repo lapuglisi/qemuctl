@@ -75,6 +75,7 @@ func (command *QmpBasicCommand) Execute(socket net.Conn) (result *QmpBasicResult
 	var jsonBytes []byte
 	var buffer []byte = make([]byte, QmpDefaultBufferSize)
 	var nBytes int
+	var readDeadLine time.Time = time.Now().Add(10 * 1000 * 1000 * 1000) /* adds 10 second */
 
 	result = &QmpBasicResult{}
 
@@ -98,6 +99,7 @@ func (command *QmpBasicCommand) Execute(socket net.Conn) (result *QmpBasicResult
 	log.Printf("[QmpCommand] execute: reading result from socket")
 	jsonBytes = make([]byte, 0)
 
+	socket.SetReadDeadline(readDeadLine)
 	for nBytes, err = socket.Read(buffer); err == nil && nBytes > 0; {
 		jsonBytes = append(jsonBytes, buffer[:nBytes]...)
 		if nBytes < QmpDefaultBufferSize {

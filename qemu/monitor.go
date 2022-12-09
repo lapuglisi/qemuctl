@@ -39,9 +39,11 @@ func (monitor *QemuMonitor) ReadQmpHeader(unix net.Conn) (qmpHeader *QmpHeader, 
 	var dataBytes []byte = make([]byte, 0)
 	var buffer []byte = make([]byte, BufferSize)
 	var nBytes int = 0
+	var socketDeadLine time.Time = time.Now().Add(5 * 1000 * 1000 * 1000) /* adds 5 seconds */
 
 	qmpHeader = &QmpHeader{}
 
+	unix.SetReadDeadline(socketDeadLine)
 	dataBytes = make([]byte, 0)
 	for nBytes, err = unix.Read(buffer); err == nil && nBytes > 0; {
 		dataBytes = append(dataBytes, buffer[:nBytes]...)
@@ -49,6 +51,8 @@ func (monitor *QemuMonitor) ReadQmpHeader(unix net.Conn) (qmpHeader *QmpHeader, 
 			break
 		}
 	}
+
+	unix.SetReadDeadline(time.Time{})
 
 	if err != nil {
 		return nil, err

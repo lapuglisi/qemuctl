@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"syscall"
 
 	//"os"
 	"os/exec"
@@ -276,6 +277,12 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 		qemuArgs = append(qemuArgs, cd.Disks.HardDisk)
 	}
 
+	/*
+	 * USB mouse/keyboard devices
+	 */
+	qemuArgs = append(qemuArgs, "-usb")
+	qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", "usb-tablet")
+
 	/* Add RTC (guest clock) spec */
 	qemuArgs = qemu.appendQemuArg(qemuArgs, "-rtc", "base=localtime,clock=host")
 
@@ -349,4 +356,22 @@ func (qemu *QemuCommand) Launch() (processPid int, err error) {
 	}
 
 	return procPid, err
+}
+
+func (qemu *QemuCommand) IsActiveProcess(qemuPid int) bool {
+	log.Printf("[IsActiveProcess] checking for PID %d", qemuPid)
+	process, err := os.FindProcess(qemuPid)
+	if err != nil {
+		log.Printf("[IsActiveProcess] could not find process %d: %s", qemuPid, err.Error())
+		return false
+	}
+
+	log.Printf("[IsActiveProcess] signaling process %d with SIGCONT", qemuPid)
+	err = process.Signal(syscall.SIGCONT)
+	if err != nil {
+		log.Printf("[IsActiveProcess] error while signaling process %d: %s", qemuPid, err.Error())
+		return false
+	}
+
+	return true
 }

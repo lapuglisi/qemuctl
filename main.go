@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"syscall"
 
 	actions "github.com/lapuglisi/qemuctl/actions"
 	runtime "github.com/lapuglisi/qemuctl/runtime"
@@ -17,6 +18,14 @@ func usage() {
 
 func signalHandler(signal os.Signal) {
 	log.Printf("[main] received signal %s", signal.String())
+
+	switch signal {
+	case syscall.SIGINT:
+		{
+			/* Nothing else to see here. Exit */
+			os.Exit(1)
+		}
+	}
 }
 
 func main() {

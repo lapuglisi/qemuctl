@@ -105,7 +105,7 @@ func NewConfigData() (configData *ConfigurationData) {
 	configData = &ConfigurationData{}
 
 	configData.Machine.MachineType = "q35"
-	configData.Machine.AccelType = "hvm"
+	configData.Machine.AccelType = "hvf"
 	configData.Machine.CPU = "host"
 	configData.Machine.EnableKVM = true
 
