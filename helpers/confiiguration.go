@@ -11,8 +11,10 @@ import (
 
 // ConfigurationData holds the power of the serominers
 type portForwards struct {
-	GuestPort int `yaml:"guestPort"`
-	HostPort  int `yaml:"hostPort"`
+	GuestAddress string `yaml:"guestAddress"`
+	GuestPort    int    `yaml:"guestPort"`
+	HostAddress  string `yaml:"hostAddress"`
+	HostPort     int    `yaml:"hostPort"`
 }
 
 type ConfigurationData struct {
@@ -43,16 +45,26 @@ type ConfigurationData struct {
 	Net         struct {
 		DeviceType string `yaml:"deviceType"`
 		User       struct {
+			Enabled      bool           `yaml:"enabled"`
 			ID           string         `yaml:"id"`
 			IPSubnet     string         `yaml:"ipSubnet"`
+			Host         string         `yaml:"host"`
+			DHCPStart    string         `yaml:"dhcpStart"`
 			PortForwards []portForwards `yaml:"portForwards"`
 		} `yaml:"user"`
-		Bridge struct {
+		Bridge     struct {
+			Enabled    bool   `yaml:"enabled"`
 			ID         string `yaml:"id"`
 			Interface  string `yaml:"interface"`
 			MacAddress string `yaml:"mac"`
 			Helper     string `yaml:"helper"`
 		}
+		Internal   struct {
+			Enabled    bool   `yaml:"enabled"`
+			ID         string `yaml:"id"`
+			IPSubnet   string `yaml:"ipSubnet"`
+			DHCPStart  string `yaml:"dhcpStart"`
+		} `yaml:"internal"`
 	} `yaml:"net"`
 	SSH struct {
 		LocalPort int `yaml:"localPort"`
@@ -114,9 +126,12 @@ func NewConfigData() (configData *ConfigurationData) {
 
 	configData.Net.DeviceType = "e1000"
 
+	configData.Net.User.Enabled = true
 	configData.Net.User.ID = "mynet0"
 
-	configData.Net.Bridge.ID = "mybr0"
+	configData.Net.Bridge.Enabled = false
+
+	configData.Net.Internal.Enabled = false
 
 	configData.RunAsDaemon = false
 

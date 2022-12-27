@@ -217,7 +217,7 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 	}
 
 	// -- Network spec
-	{
+	if cd.Net.User.Enabled {
 		/* Configure user network device */
 		netSpec = fmt.Sprintf("%s,netdev=%s", cd.Net.DeviceType, cd.Net.User.ID)
 		qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", netSpec)
@@ -229,20 +229,31 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 			netSpec = fmt.Sprintf("%s,net=%s", netSpec, cd.Net.User.IPSubnet)
 		}
 
+		if len(cd.Net.User.Host) > 0 {
+			netSpec = fmt.Sprintf("%s,host=%s", netSpec, cd.Net.User.Host)
+		}
+
+		if len(cd.Net.User.DHCPStart) > 0 {
+			netSpec = fmt.Sprintf("%s,dhcpstart=%s", netSpec, cd.Net.User.DHCPStart)
+		}
+
 		if cd.SSH.LocalPort > 0 {
-			netSpec = fmt.Sprintf("%s,hostfwd=tcp::%d-:22", netSpec, cd.SSH.LocalPort)
+			netSpec = fmt.Sprintf("%s,hostfwd=tcp:127.0.0.1:%d-:22", netSpec, cd.SSH.LocalPort)
 		}
 
 		/* Port fowards come here */
 		for _, _value := range cd.Net.User.PortForwards {
-			netSpec = fmt.Sprintf("%s,hostfwd=tcp::%d-:%d", netSpec, _value.HostPort, _value.GuestPort)
+			netSpec = fmt.Sprintf("%s,hostfwd=tcp:%s:%d-%s:%d", 
+			netSpec, _value.HostAddress, _value.HostPort, _value.GuestAddress, _value.GuestPort)
 		}
 
 		qemuArgs = qemu.appendQemuArg(qemuArgs, "-netdev", netSpec)
+	}
 
-		/*
-		 * Configure bridge, if any
-		 */
+	/*
+	 * Configure bridge, if any
+	 */
+	if cd.Net.Bridge.Enabled {
 		if len(cd.Net.Bridge.Interface) > 0 {
 			//-- Device specification
 			netSpec = fmt.Sprintf("%s,netdev=%s", cd.Net.DeviceType, cd.Net.Bridge.ID)
@@ -258,6 +269,21 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 			}
 			qemuArgs = qemu.appendQemuArg(qemuArgs, "-netdev", netSpec)
 		}
+	}
+
+	/* Configure Tap, if any */
+	if cd.Net.Internal.Enabled {
+		netSpec = fmt.Sprintf("%s,netdev=%s", cd.Net.DeviceType, cd.Net.Internal.ID)
+		qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", netSpec)
+
+		/* Configure User NIC */
+		netSpec = fmt.Sprintf("user,id=%s,restrict=on", cd.Net.Internal.ID)
+
+		if len(cd.Net.Internal.IPSubnet) > 0 {
+			netSpec = fmt.Sprintf("%s,net=%s", netSpec, cd.Net.Internal.IPSubnet)
+		}
+
+		qemuArgs = qemu.appendQemuArg(qemuArgs, "-netdev", netSpec)
 	}
 
 	/*
