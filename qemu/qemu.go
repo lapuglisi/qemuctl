@@ -212,7 +212,8 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 
 	// -- Background?
 	if cd.RunAsDaemon {
-		qemuArgs = append(qemuArgs, "-daemonize")
+		// daemonize not working well on NetBSD, don't add it yet
+		// qemuArgs = append(qemuArgs, "-daemonize")
 	}
 
 	// -- Network spec
@@ -294,6 +295,7 @@ func (qemu *QemuCommand) Launch() (processPid int, err error) {
 	var procState *os.ProcessState = nil
 	var procPid int
 	var qemuArgs []string
+	var logFile *os.File
 
 	qemuArgs, err = qemu.getQemuArgs()
 	if err != nil {
@@ -309,15 +311,32 @@ func (qemu *QemuCommand) Launch() (processPid int, err error) {
 	err = nil
 
 	log.Printf("[launch] creating qemu command struct")
-	procAttrs = &os.ProcAttr{
-		Dir: os.ExpandEnv("$HOME"),
-		Env: os.Environ(),
-		Files: []*os.File{
-			os.Stdin,
-			os.Stdout,
-			os.Stderr,
-		},
-		Sys: nil,
+	if qemu.Configuration.RunAsDaemon {
+		logFile, err = os.OpenFile(runtime.GetLogFilePath(), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0744)
+		if err != nil {
+			logFile = os.Stderr
+		}
+		procAttrs = &os.ProcAttr{
+			Dir: os.ExpandEnv("$HOME"),
+			Env: os.Environ(),
+			Files: []*os.File{
+				nil,
+				logFile,
+				logFile,
+			},
+			Sys: nil,
+		}
+	} else {
+		procAttrs = &os.ProcAttr{
+			Dir: os.ExpandEnv("$HOME"),
+			Env: os.Environ(),
+			Files: []*os.File{
+				os.Stdin,
+				os.Stdout,
+				os.Stderr,
+			},
+			Sys: nil,
+		}
 	}
 	execArgs := make([]string, 0)
 	execArgs = append(execArgs, qemu.QemuPath)

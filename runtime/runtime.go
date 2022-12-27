@@ -25,6 +25,10 @@ func GetMachinesBaseDir() string {
 	return fmt.Sprintf("%s/%s", GetUserDataDir(), MachineBaseDirectoryName)
 }
 
+func GetLogFilePath() string {
+	return fmt.Sprintf("%s/qemuctl.log", GetUserDataDir())
+}
+
 func SetupRuntimeData() (err error) {
 	var qemuctlDir string = GetUserDataDir()
 
@@ -41,8 +45,7 @@ func SetupRuntimeData() (err error) {
 	}
 
 	/* Setup log */
-	logFilePath := fmt.Sprintf("%s/qemuctl.log", qemuctlDir)
-	logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0744)
+	logFile, err := os.OpenFile(GetLogFilePath(), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0744)
 	if err != nil {
 		return err
 	}
