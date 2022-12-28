@@ -43,15 +43,24 @@ type ConfigurationData struct {
 	Net         struct {
 		DeviceType string `yaml:"deviceType"`
 		User       struct {
+			Enabled      bool           `yaml:"enabled"`
 			ID           string         `yaml:"id"`
 			IPSubnet     string         `yaml:"ipSubnet"`
+			DHCPStart    string         `yaml:"dhcpStart"`
 			PortForwards []portForwards `yaml:"portForwards"`
 		} `yaml:"user"`
 		Bridge struct {
+			Enabled    bool   `yaml:"enabled"`
 			ID         string `yaml:"id"`
 			Interface  string `yaml:"interface"`
 			MacAddress string `yaml:"mac"`
 			Helper     string `yaml:"helper"`
+		}
+		Internal struct {
+			Enabled   bool   `yaml:"enabled"`
+			ID        string `yaml:"id"`
+			IPSubnet  string `yaml:"ipSubnet"`
+			DHCPStart string `yaml:"dhcpStart"`
 		}
 	} `yaml:"net"`
 	SSH struct {
