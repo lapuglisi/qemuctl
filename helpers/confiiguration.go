@@ -48,6 +48,7 @@ type ConfigurationData struct {
 			PortForwards []portForwards `yaml:"portForwards"`
 		} `yaml:"user"`
 		Bridge struct {
+			Enabled    bool   `yaml:"enabled"`
 			ID         string `yaml:"id"`
 			Interface  string `yaml:"interface"`
 			MacAddress string `yaml:"mac"`

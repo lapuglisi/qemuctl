@@ -84,7 +84,7 @@ func (action *StartAction) handleStart(machineName string) (err error) {
 		action.machine.Status = runtime.MachineStatusRunning
 		action.machine.UpdateData()
 	} else {
-		action.machine.QemuPid = 0
+		// action.machine.QemuPid = 0
 		action.machine.SSHLocalPort = 0
 		action.machine.Status = runtime.MachineStatusDegraded
 		action.machine.UpdateData()

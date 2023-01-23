@@ -156,19 +156,15 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 
 	// Spice is enabled?
 	if cd.Display.Spice.Enabled {
-		if cd.Display.Spice.Port <= 0 {
-			log.Printf("[getQemuArgs] spice is enable but spice.port is not defined")
-		} else {
-			spiceSpec := fmt.Sprintf("port=%d,tls-port=%d%s,disable-ticketing=%s,agent-mouse=%s,password=%s,gl=%s",
-				cd.Display.Spice.Port, cd.Display.Spice.TLSPort,
-				qemu.getKeyValuePair(len(cd.Display.Spice.Address) > 0, ",addr", cd.Display.Spice.Address),
-				qemu.getBoolString(cd.Display.Spice.DisableTicketing, "on", "off"),
-				qemu.getBoolString(cd.Display.Spice.EnableAgentMouse, "on", "off"),
-				cd.Display.Spice.Password,
-				qemu.getBoolString(cd.Display.Spice.OpenGL, "on", "off"))
+		spiceSpec := fmt.Sprintf("ipv4=on,port=%d,tls-port=%d%s,disable-ticketing=%s,agent-mouse=%s,password=%s,gl=%s,unix=on",
+			cd.Display.Spice.Port, cd.Display.Spice.TLSPort,
+			qemu.getKeyValuePair(len(cd.Display.Spice.Address) > 0, ",addr", cd.Display.Spice.Address),
+			qemu.getBoolString(cd.Display.Spice.DisableTicketing, "on", "off"),
+			qemu.getBoolString(cd.Display.Spice.EnableAgentMouse, "on", "off"),
+			cd.Display.Spice.Password,
+			qemu.getBoolString(cd.Display.Spice.OpenGL, "on", "off"))
 
-			qemuArgs = qemu.appendQemuArg(qemuArgs, "-spice", spiceSpec)
-		}
+		qemuArgs = qemu.appendQemuArg(qemuArgs, "-spice", spiceSpec)
 	}
 
 	/**
@@ -242,7 +238,7 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 		/*
 		 * Configure bridge, if any
 		 */
-		if len(cd.Net.Bridge.Interface) > 0 {
+		if cd.Net.Bridge.Enabled {
 			//-- Device specification
 			netSpec = fmt.Sprintf("%s,netdev=%s", cd.Net.DeviceType, cd.Net.Bridge.ID)
 			if len(cd.Net.Bridge.MacAddress) > 0 {
@@ -255,6 +251,7 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 			if len(cd.Net.Bridge.Helper) > 0 {
 				netSpec = fmt.Sprintf("%s,helper=%s", netSpec, cd.Net.Bridge.Helper)
 			}
+
 			qemuArgs = qemu.appendQemuArg(qemuArgs, "-netdev", netSpec)
 		}
 
