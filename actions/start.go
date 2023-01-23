@@ -23,7 +23,7 @@ func (action *StartAction) Run(arguments []string) (err error) {
 	}
 	machineName := arguments[0]
 
-	fmt.Printf("[start] starting machine '%s'... ", machineName)
+	fmt.Printf("[qemuctl::actions::start] starting machine '%s'... ", machineName)
 
 	/* Do proper handling */
 	err = action.handleStart(machineName)
@@ -73,10 +73,7 @@ func (action *StartAction) handleStart(machineName string) (err error) {
 	/*
 	 * Update machine status to 'started'
 	 */
-	action.machine.QemuPid = 0
-	action.machine.SSHLocalPort = 0
-	action.machine.Status = runtime.MachineStatusStarted
-	action.machine.UpdateData()
+	action.machine.Reset(runtime.MachineStatusStarted)
 
 	qemuPid, err = qemu.Launch()
 	if err == nil {

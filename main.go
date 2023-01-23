@@ -25,6 +25,13 @@ func main() {
 	var execArgs []string = os.Args
 	var action string
 
+	if os.Geteuid() != 0 {
+		fmt.Println()
+		fmt.Printf("this program must be run as root, but you are user %d.\n", os.Getuid())
+		fmt.Println()
+		os.Exit(-1)
+	}
+
 	if len(execArgs) < 2 {
 		usage()
 		os.Exit(1)
@@ -67,7 +74,6 @@ func main() {
 			err = action.Run(execArgs)
 			break
 		}
-
 	case "stop":
 		{
 			action := actions.StopAction{}
@@ -88,6 +94,22 @@ func main() {
 	case "list":
 		{
 			action := actions.ListAction{}
+			err = action.Run(execArgs)
+		}
+	case "service":
+		{
+			action := actions.ServiceAction{}
+			err = action.Run(execArgs)
+		}
+
+	case "enable":
+		{
+			action := actions.EnableAction{}
+			err = action.Run(execArgs)
+		}
+	case "disable":
+		{
+			action := actions.DisableAction{}
 			err = action.Run(execArgs)
 		}
 	default:

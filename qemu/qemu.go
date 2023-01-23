@@ -257,6 +257,23 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 			}
 			qemuArgs = qemu.appendQemuArg(qemuArgs, "-netdev", netSpec)
 		}
+
+		if cd.Net.Tap.Enabled {
+			netSpec = fmt.Sprintf("%s,netdev=%s", cd.Net.DeviceType, cd.Net.Tap.ID)
+			qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", netSpec)
+
+			netSpec = fmt.Sprintf("tap,id=%s,ifname=%s",
+				cd.Net.Tap.ID, cd.Net.Tap.Interface)
+
+			// TODO: make it wiser
+			if cd.Net.Tap.Scripts.Enabled {
+				netSpec = fmt.Sprintf("%s,script=%s,downscript=%s",
+					netSpec, cd.Net.Tap.Scripts.UpScript, cd.Net.Tap.Scripts.DownScript)
+			} else {
+				netSpec = fmt.Sprintf("%s,script=no,downscript=no", netSpec)
+			}
+			qemuArgs = qemu.appendQemuArg(qemuArgs, "-netdev", netSpec)
+		}
 	}
 
 	/*

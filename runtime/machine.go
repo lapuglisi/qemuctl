@@ -49,7 +49,7 @@ type Machine struct {
 
 func NewMachine(machineName string) (machine *Machine) {
 	var runtimeDirectory string = fmt.Sprintf("%s/%s/%s",
-		GetUserDataDir(), MachineBaseDirectoryName, machineName)
+		GetRuntimeDir(), MachineBaseDirectoryName, machineName)
 	var dataFile string = fmt.Sprintf("%s/%s", runtimeDirectory, MachineDataFileName)
 	var configFile string = fmt.Sprintf("%s/%s", runtimeDirectory, MachineConfigFileName)
 
@@ -152,6 +152,17 @@ func (m *Machine) Destroy() bool {
 	}
 
 	return err == nil
+}
+
+func (m *Machine) Reset(status string) {
+	if len(status) == 0 {
+		status = MachineStatusUnknown
+	}
+
+	m.QemuPid = 0
+	m.SSHLocalPort = 0
+	m.Status = status
+	m.UpdateData()
 }
 
 func (m *Machine) IsRunning() bool {
