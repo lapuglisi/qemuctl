@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	helpers "github.com/lapuglisi/qemuctl/helpers"
 	runtime "github.com/lapuglisi/qemuctl/runtime"
@@ -26,54 +27,54 @@ func (action *DisableAction) Run(arguments []string) (err error) {
 
 	action.machineName = arguments[0]
 
+	fmt.Printf("[qemuctl] disabling machine '%s'...", action.machineName)
+
 	/* Do proper handling */
 	err = action.handleDisable()
 	if err != nil {
+		fmt.Println(" \033[31merror!\033[0m")
 		return err
 	}
 
+	fmt.Println(" \033[32mok!\033[0m")
 	return nil
 }
 
 func (action *DisableAction) handleDisable() (err error) {
-	var configData *helpers.RuntimeConfiguration = nil
-	var configPath string = fmt.Sprintf("%s/%s", runtime.GetSystemConfDir(), runtime.RuntimeConfFileName)
+	var autoStartDir string = fmt.Sprintf("%s/%s", runtime.GetSystemConfDir(), runtime.RuntimeAutoStartDirName)
 	var machineFound bool = false
 
-	configData, err = helpers.GetRuntimeConfiguration(configPath)
-	if err != nil {
-		return err
-	}
+	log.Printf("[qemuctl::actions::disable] reading directory '%s'...\n", autoStartDir)
 
-	for _, machine := range configData.Machines {
-		if machine.Name == action.machineName {
-			log.Printf("[qemuctl::actions::disable] machine '%s' is in '%s'.\n", machine.Name, configPath)
-			if machine.Enabled {
-				log.Printf("[qemuctl::actions::disable] machine '%s' is enabled. Disabling it.\n", machine.Name)
-				machine.Enabled = false
-			} else {
-				log.Printf("[qemuctl::actions::disable] machine '%s' is already disabled. Skipping.\n", machine.Name)
+	dirEntries, err := os.ReadDir(autoStartDir)
+	for _, entry := range dirEntries {
+		if entry.IsDir() {
+			log.Printf("[qemuctl::actions::disable] current entry '%s' is a directory. Skipping.\n", entry.Name())
+		} else {
+			currentConf := fmt.Sprintf("%s/%s", autoStartDir, entry.Name())
+			log.Printf("[qemuctl::actions::disable] checking file '%s'.\n", currentConf)
+
+			configHandler := helpers.NewConfigHandler(currentConf)
+			configData, err := configHandler.ParseConfigFile()
+			if err != nil {
+				log.Printf("[qemuctl::actions::disable] error while parsing file '%s': %s.\n", currentConf, err.Error())
+				continue
 			}
 
-			machineFound = true
-			break
+			if configData.Machine.MachineName == action.machineName {
+				log.Printf("[qemuctl::actions::disable] found config file '%s' for machine '%s'. Removing it.\n",
+					currentConf, action.machineName)
+				os.Remove(currentConf)
+
+				machineFound = true
+				break
+			}
 		}
 	}
 
 	if !machineFound {
-		log.Printf("[qemuctl::actions::enable] machine '%s' was not found in '%s'. Enabling it.\n",
-			action.machineName, configPath)
-		configData.Machines = append(configData.Machines,
-			helpers.RuntimeConfigurationMachine{
-				Enabled: false,
-				Name:    action.machineName,
-			})
+		err = fmt.Errorf("machine '%s' is not enabled", action.machineName)
 	}
 
-	err = helpers.SaveRuntimeConfiguration(configData, configPath)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

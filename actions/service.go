@@ -3,6 +3,7 @@ package qemuctl_actions
 import (
 	"fmt"
 	"log"
+	"os"
 
 	qemuctl_helpers "github.com/lapuglisi/qemuctl/helpers"
 	qemuctl_runtime "github.com/lapuglisi/qemuctl/runtime"
@@ -18,28 +19,28 @@ const (
 
 func (action *ServiceAction) Run(arguments []string) (err error) {
 	// get runtime directory
-	var runtimeConf string = fmt.Sprintf("%s/%s", qemuctl_runtime.GetSystemConfDir(), qemuctl_runtime.RuntimeConfFileName)
 	var startAction StartAction
+	var autoStartDir string = fmt.Sprintf("%s/%s", qemuctl_runtime.GetSystemConfDir(), qemuctl_runtime.RuntimeAutoStartDirName)
 
-	action.forceStart = false
+	log.Printf("[qemuctl::actions::service] checking directory '%s'...\n", autoStartDir)
 
-	log.Printf("[qemuctl::actions::service] checking for enabled machines in '%s'.\n", runtimeConf)
-	configData, err := qemuctl_helpers.GetRuntimeConfiguration(runtimeConf)
-	if err != nil {
-		return err
-	}
+	dirEntries, err := os.ReadDir(autoStartDir)
+	for _, entry := range dirEntries {
+		currentConf := fmt.Sprintf("%s/%s", autoStartDir, entry.Name())
+		log.Printf("[qemuctl::actions::service] found config file '%s'...\n", currentConf)
 
-	for _, machine := range configData.Machines {
-		log.Printf("[qemuctl::actions::service] parsing machine '%s'...\n", machine.Name)
-		if machine.Enabled {
-			log.Printf("[qemuctl::actions::service] service for machine '%s' is enabled. Starting it.\n", machine.Name)
-
-			startAction = StartAction{}
-			startAction.Run([]string{machine.Name})
-		} else {
-			log.Printf("[qemuctl::actions::service] service for machine '%s' is disabled. Skipping.\n", machine.Name)
+		configHandler := qemuctl_helpers.NewConfigHandler(currentConf)
+		configData, err := configHandler.ParseConfigFile()
+		if err != nil {
+			log.Printf("[qemuctl::actions::service] error while parsing file '%s': %s\n",
+				currentConf, err.Error())
 		}
+
+		log.Printf("[qemuctl::actions::service] starting machine '%s'...\n", configData.Machine.MachineName)
+
+		startAction = StartAction{}
+		startAction.Run([]string{configData.Machine.MachineName})
 	}
 
-	return nil
+	return err
 }

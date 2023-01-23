@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"os"
 
 	"gopkg.in/yaml.v2"
@@ -189,52 +188,4 @@ func (ch *ConfigurationHandler) ParseConfigFile() (configData *ConfigurationData
 	}
 
 	return configData, nil
-}
-
-func GetRuntimeConfiguration(configFilePath string) (config *RuntimeConfiguration, err error) {
-	var configBytes []byte = nil
-	var bufReader *bufio.Reader = nil
-
-	config = &RuntimeConfiguration{}
-
-	// Open file
-	fileHandle, osErr := os.OpenFile(configFilePath, os.O_RDONLY, 0644)
-	if osErr != nil {
-		err = fmt.Errorf("[qemuctl::helpers::configuration] could not open file '%s': %s", configFilePath, osErr.Error())
-		return nil, err
-	}
-	defer fileHandle.Close()
-
-	// Read lines
-	bufReader = bufio.NewReader(fileHandle)
-	configBytes, err = io.ReadAll(bufReader)
-	if err != nil {
-		return nil, err
-	}
-
-	/* Now YAML the whole thing */
-	err = yaml.Unmarshal(configBytes, config)
-	if err != nil {
-		return nil, err
-	}
-
-	return config, nil
-}
-
-func SaveRuntimeConfiguration(configData *RuntimeConfiguration, configPath string) (err error) {
-	log.Printf("[qemuctl::helpers::configuration] saving file '%s'\n", configPath)
-
-	configBytes, err := yaml.Marshal(configData)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("[qemuctl::helpers::configuration] writing %d bytes to file '%s'\n", len(configBytes), configPath)
-	os.WriteFile(configPath, configBytes, os.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("[qemuctl::helpers::configuration] file '%s' saved successfully", configPath)
-	return nil
 }

@@ -4,8 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"path"
 
-	helpers "github.com/lapuglisi/qemuctl/helpers"
 	runtime "github.com/lapuglisi/qemuctl/runtime"
 )
 
@@ -26,54 +27,62 @@ func (action *EnableAction) Run(arguments []string) (err error) {
 
 	action.machineName = arguments[0]
 
+	fmt.Printf("[qemuctl] enabling machine '%s'...", action.machineName)
+
 	/* Do proper handling */
 	err = action.handleEnable()
 	if err != nil {
+		fmt.Println(" \033[31merror!\033[0m")
 		return err
 	}
 
+	fmt.Println(" \033[32mok!\033[0m")
 	return nil
 }
 
 func (action *EnableAction) handleEnable() (err error) {
-	var configData *helpers.RuntimeConfiguration = nil
-	var configPath string = fmt.Sprintf("%s/%s", runtime.GetSystemConfDir(), runtime.RuntimeConfFileName)
+	var autoStartDir string = fmt.Sprintf("%s/%s", runtime.GetSystemConfDir(), runtime.RuntimeAutoStartDirName)
+	var machinesDir string = runtime.GetMachinesBaseDir()
 	var machineFound bool = false
 
-	configData, err = helpers.GetRuntimeConfiguration(configPath)
+	// iterate through 'machines' directory and find related machine config
+	log.Printf("[qemuctl::actions::enable] checking machines in directory '%s'...\n", machinesDir)
+
+	machines, err := os.ReadDir(machinesDir)
 	if err != nil {
 		return err
 	}
 
-	for _, machine := range configData.Machines {
-		if machine.Name == action.machineName {
-			log.Printf("[qemuctl::actions::enable] machine '%s' is in '%s'.\n", machine.Name, configPath)
-			if !machine.Enabled {
-				log.Printf("[qemuctl::actions::enable] machine '%s' is disabled. Enabling it.\n", machine.Name)
-				machine.Enabled = true
-			} else {
-				log.Printf("[qemuctl::actions::enable] machine '%s' is already enabled. Skipping.\n", machine.Name)
-			}
+	for _, machine := range machines {
+		log.Printf("[qemuctl::actions::enable] handling entry '%s'.\n", machine.Name())
 
-			machineFound = true
-			break
+		if machine.IsDir() {
+			log.Printf("[qemuctl::actions::enable] entry is a directory. Machine name is '%s'...\n", machine.Name())
+
+			currentMachine := runtime.NewMachine(machine.Name())
+			if currentMachine.Name == action.machineName {
+				log.Printf("[qemuctl::actions::enable] macthed machine with dir '%s'...\n", machine.Name())
+
+				currentConf := currentMachine.ConfigFile
+				log.Printf("[qemuctl::actions::enable] enabling machine conf '%s'...\n", currentConf)
+
+				targetConf := fmt.Sprintf("%s/%s", autoStartDir, path.Base(currentConf))
+				log.Printf("[qemuctl::actions::enable] copying '%s' to '%s'...",
+					currentMachine.ConfigFile, targetConf)
+
+				err = runtime.CopyFile(currentConf, targetConf)
+
+				machineFound = true
+				break
+			}
+		} else {
+			log.Printf("[qemuctl::actions::enable] current entry '%s' is not a directory. Skipping.\n", machine.Name())
 		}
 	}
 
 	if !machineFound {
-		log.Printf("[qemuctl::actions::enable] machine '%s' was not found in '%s'. Enabling it.\n",
-			action.machineName, configPath)
-		configData.Machines = append(configData.Machines,
-			helpers.RuntimeConfigurationMachine{
-				Enabled: true,
-				Name:    action.machineName,
-			})
+		err = fmt.Errorf("machine '%s' not found", action.machineName)
 	}
 
-	err = helpers.SaveRuntimeConfiguration(configData, configPath)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
