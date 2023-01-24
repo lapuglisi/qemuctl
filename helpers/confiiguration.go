@@ -55,10 +55,11 @@ type ConfigurationData struct {
 			Helper     string `yaml:"helper"`
 		}
 		Tap struct {
-			Enabled   bool   `yaml:"enabled"`
-			ID        string `yaml:"id"`
-			Interface string `yaml:"interface"`
-			Scripts   struct {
+			Enabled      bool   `yaml:"enabled"`
+			ID           string `yaml:"id"`
+			Bridge       string `yaml:"bridge"`
+			TapInterface string `yaml:"tap"`
+			Scripts      struct {
 				Enabled    bool   `yaml:"enabled"`
 				UpScript   string `yaml:"upScript"`
 				DownScript string `yaml:"upScript"`

@@ -73,7 +73,7 @@ func (action *CreateAction) handleCreate() (err error) {
 				return fmt.Errorf("could not destroy machine '%s'", machine.Name)
 			}
 
-			machine = runtime.NewMachine(configData.Machine.MachineName)
+			machine.CreateRuntime()
 		} else {
 			fmt.Println("\033[31merror!\033[0m")
 			return fmt.Errorf(existsMessage)
