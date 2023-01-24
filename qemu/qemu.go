@@ -1,6 +1,7 @@
 package qemuctl_qemu
 
 import (
+	"crypto/rand"
 	"fmt"
 	"log"
 	"os"
@@ -15,7 +16,8 @@ import (
 )
 
 const (
-	QemuDefaultSystemBin string = "qemu-system-x86_64"
+	QemuDefaultSystemBin       string = "qemu-system-x86_64"
+	QemuDefaultMacAddressBytes string = "52:54:00"
 )
 
 type QemuCommand struct {
@@ -42,6 +44,21 @@ func NewQemuCommand(configData *config.ConfigurationData, qemuMonitor *QemuMonit
 		Configuration: configData,
 		Monitor:       qemuMonitor,
 	}
+}
+
+func (qemu *QemuCommand) generateQemuMacAdress() (mac string, err error) {
+	/* QEMU usually sets a mac address in the form '52:54:00:XX:XX:XX', so i'm sticking to it */
+	var macBytes []byte = make([]byte, 3)
+
+	/* read 3 random bytes into 'macBytes' */
+	_, err = rand.Read(macBytes)
+	if err != nil {
+		return "", err
+	}
+
+	mac = fmt.Sprintf("%s:%02X:%02X:%02X", QemuDefaultMacAddressBytes, macBytes[0], macBytes[1], macBytes[2])
+
+	return mac, nil
 }
 
 func (qemu *QemuCommand) getBoolString(qemuFlag bool, trueValue string, falseValue string) string {
@@ -156,9 +173,12 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 
 	// Spice is enabled?
 	if cd.Display.Spice.Enabled {
-		spiceSpec := fmt.Sprintf("ipv4=on,port=%d,tls-port=%d%s,disable-ticketing=%s,agent-mouse=%s,password=%s,gl=%s,unix=on",
-			cd.Display.Spice.Port, cd.Display.Spice.TLSPort,
+		spiceSpec := fmt.Sprintf("port=%d%s,ipv4=%s,ipv6=%s,tls-port=%d,disable-ticketing=%s,agent-mouse=%s,password=%s,gl=%s,unix=on",
+			cd.Display.Spice.Port,
 			qemu.getKeyValuePair(len(cd.Display.Spice.Address) > 0, ",addr", cd.Display.Spice.Address),
+			qemu.getBoolString(cd.Display.Spice.EnableIPv4, "on", "off"),
+			qemu.getBoolString(cd.Display.Spice.EnableIPv6, "on", "off"),
+			cd.Display.Spice.TLSPort,
 			qemu.getBoolString(cd.Display.Spice.DisableTicketing, "on", "off"),
 			qemu.getBoolString(cd.Display.Spice.EnableAgentMouse, "on", "off"),
 			cd.Display.Spice.Password,
@@ -211,43 +231,62 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 		qemuArgs = append(qemuArgs, "-daemonize")
 	}
 
+	// - enable soundhw='hda' ?
+	if cd.Audio.Enabled {
+		audioSpec := fmt.Sprintf("%s,model=%s", cd.Audio.Driver, cd.Audio.Model)
+		qemuArgs = qemu.appendQemuArg(qemuArgs, "-audiodev", audioSpec)
+	}
+
 	// -- Network spec
 	{
-		/* Configure user network device */
-		netSpec = fmt.Sprintf("%s,netdev=%s", cd.Net.DeviceType, cd.Net.User.ID)
-		qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", netSpec)
+		if cd.Net.User.Enabled {
+			/* Configure user network device */
+			netSpec = fmt.Sprintf("%s,netdev=%s", cd.Net.DeviceType, cd.Net.User.ID)
+			qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", netSpec)
 
-		/* Configure User NIC */
-		netSpec = fmt.Sprintf("user,id=%s", cd.Net.User.ID)
+			/* Configure User NIC */
+			netSpec = fmt.Sprintf("user,id=%s", cd.Net.User.ID)
 
-		if len(cd.Net.User.IPSubnet) > 0 {
-			netSpec = fmt.Sprintf("%s,net=%s", netSpec, cd.Net.User.IPSubnet)
+			if len(cd.Net.User.IPSubnet) > 0 {
+				netSpec = fmt.Sprintf("%s,net=%s", netSpec, cd.Net.User.IPSubnet)
+			}
+
+			if cd.SSH.LocalPort > 0 {
+				netSpec = fmt.Sprintf("%s,hostfwd=tcp::%d-:22", netSpec, cd.SSH.LocalPort)
+			}
+
+			/* Port fowards come here */
+			for _, _value := range cd.Net.User.PortForwards {
+				netSpec = fmt.Sprintf("%s,hostfwd=tcp::%d-:%d", netSpec, _value.HostPort, _value.GuestPort)
+			}
+
+			qemuArgs = qemu.appendQemuArg(qemuArgs, "-netdev", netSpec)
 		}
-
-		if cd.SSH.LocalPort > 0 {
-			netSpec = fmt.Sprintf("%s,hostfwd=tcp::%d-:22", netSpec, cd.SSH.LocalPort)
-		}
-
-		/* Port fowards come here */
-		for _, _value := range cd.Net.User.PortForwards {
-			netSpec = fmt.Sprintf("%s,hostfwd=tcp::%d-:%d", netSpec, _value.HostPort, _value.GuestPort)
-		}
-
-		qemuArgs = qemu.appendQemuArg(qemuArgs, "-netdev", netSpec)
 
 		/*
 		 * Configure bridge, if any
 		 */
 		if cd.Net.Bridge.Enabled {
 			//-- Device specification
-			netSpec = fmt.Sprintf("%s,netdev=%s", cd.Net.DeviceType, cd.Net.Bridge.ID)
+			netSpec = fmt.Sprintf("virtio-net-pci,netdev=%s", cd.Net.Bridge.ID)
 			if len(cd.Net.Bridge.MacAddress) > 0 {
-				netSpec = fmt.Sprintf("%s,mac=", cd.Net.Bridge.MacAddress)
+				netSpec = fmt.Sprintf("%s,mac=%s", netSpec, cd.Net.Bridge.MacAddress)
+			} else {
+				macAddr, err := qemu.generateQemuMacAdress()
+				if err == nil {
+					netSpec = fmt.Sprintf("%s,mac=%s", netSpec, macAddr)
+				} else {
+					log.Printf("[qemuctl::qemu] error while generating mac address: %s\n", err.Error())
+				}
 			}
 			qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", netSpec)
 
 			// Bridge definition
-			netSpec = fmt.Sprintf("bridge,id=%s,br=%s", cd.Net.Bridge.ID, cd.Net.Bridge.Interface)
+			netSpec = fmt.Sprintf("bridge,id=%s", cd.Net.Bridge.ID)
+
+			if len(cd.Net.Bridge.Interface) > 0 {
+				netSpec = fmt.Sprintf("%s,br=%s", netSpec, cd.Net.Bridge.Interface)
+			}
 			if len(cd.Net.Bridge.Helper) > 0 {
 				netSpec = fmt.Sprintf("%s,helper=%s", netSpec, cd.Net.Bridge.Helper)
 			}
@@ -256,12 +295,23 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 		}
 
 		if cd.Net.Tap.Enabled {
-			netSpec = fmt.Sprintf("%s,netdev=%s", cd.Net.DeviceType, cd.Net.Tap.ID)
+			netSpec = fmt.Sprintf("virtio-net-pci,netdev=%s", cd.Net.Tap.ID)
+			if len(cd.Net.Tap.MacAddress) > 0 {
+				netSpec = fmt.Sprintf("%s,mac=%s", netSpec, cd.Net.Bridge.MacAddress)
+			} else {
+				macAddr, err := qemu.generateQemuMacAdress()
+				if err == nil {
+					netSpec = fmt.Sprintf("%s,mac=%s", netSpec, macAddr)
+				} else {
+					log.Printf("[qemuctl::qemu] error while generating mac address: %s\n", err.Error())
+				}
+			}
+
 			qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", netSpec)
 
 			netSpec = fmt.Sprintf("tap,id=%s", cd.Net.Tap.ID)
 			if len(cd.Net.Tap.TapInterface) > 0 {
-				netSpec = fmt.Sprintf("%s,fd=%s", netSpec, cd.Net.Tap.TapInterface)
+				netSpec = fmt.Sprintf("%s,ifname=%s", netSpec, cd.Net.Tap.TapInterface)
 			}
 
 			if len(cd.Net.Tap.Bridge) > 0 {
@@ -297,7 +347,7 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 	}
 
 	/* Add RTC (guest clock) spec */
-	qemuArgs = qemu.appendQemuArg(qemuArgs, "-rtc", "base=localtime,clock=host")
+	qemuArgs = qemu.appendQemuArg(qemuArgs, "-rtc", "base=utc,clock=host")
 
 	/* Add a monitor specfication to be able to operate on the machine */
 	qemuArgs = qemu.appendQemuArg(qemuArgs, "-chardev", monitor.GetChardevSpec())

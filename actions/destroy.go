@@ -23,9 +23,6 @@ func (action *DestroyAction) Run(arguments []string) (err error) {
 		return err
 	}
 
-	fmt.Printf("action.forceDestroy: %v\n", flagSet.Args())
-	fmt.Printf("action.forceDestroy: %v\n", action.forceDestroy)
-
 	action.machineName = flagSet.Args()[0]
 
 	if len(action.machineName) == 0 {

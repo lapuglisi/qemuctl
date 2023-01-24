@@ -43,6 +43,7 @@ type ConfigurationData struct {
 	Net         struct {
 		DeviceType string `yaml:"deviceType"`
 		User       struct {
+			Enabled      bool           `yaml:"enabled"`
 			ID           string         `yaml:"id"`
 			IPSubnet     string         `yaml:"ipSubnet"`
 			PortForwards []portForwards `yaml:"portForwards"`
@@ -59,6 +60,7 @@ type ConfigurationData struct {
 			ID           string `yaml:"id"`
 			Bridge       string `yaml:"bridge"`
 			TapInterface string `yaml:"tap"`
+			MacAddress   string `yaml:"mac"`
 			Scripts      struct {
 				Enabled    bool   `yaml:"enabled"`
 				UpScript   string `yaml:"upScript"`
@@ -84,6 +86,8 @@ type ConfigurationData struct {
 		} `yaml:"vnc"`
 		Spice struct {
 			Enabled          bool   `yaml:"enabled"`
+			EnableIPv4       bool   `yaml:"ipv4"`
+			EnableIPv6       bool   `yaml:"ipv6"`
 			Port             int    `yaml:"port"`
 			Address          string `yaml:"address"`
 			TLSPort          int    `yaml:"tlsPort"`
@@ -93,6 +97,11 @@ type ConfigurationData struct {
 			OpenGL           bool   `yaml:"openGL"`
 		} `yaml:"spice"`
 	} `yaml:"display"`
+	Audio struct {
+		Enabled bool   `yaml:"enabled"`
+		Driver  string `yaml:"driver"`
+		Model   string `yaml:"model"`
+	} `yaml:"enableSound"`
 	Boot struct {
 		KernelPath     string `yaml:"kernelPath"`
 		RamdiskPath    string `yaml:"ramdiskPath"`
@@ -148,7 +157,10 @@ func NewConfigData() (configData *ConfigurationData) {
 	configData.Display.DisplaySpec = "none"
 
 	configData.Display.VNC.Enabled = false
+
 	configData.Display.Spice.Enabled = false
+	configData.Display.Spice.EnableIPv4 = true
+	configData.Display.Spice.EnableIPv6 = false
 
 	return configData
 }
