@@ -40,7 +40,11 @@ type ConfigurationData struct {
 	RunAsDaemon bool   `yaml:"runAsDaemon"`
 	Memory      string `yaml:"memory"`
 	CPUs        int64  `yaml:"cpus"`
-	Net         struct {
+	PCI         struct {
+		Passthrough bool     `yaml:"passthrough"`
+		Devices     []string `yaml:"devices"`
+	} `yaml:"pci"`
+	Net struct {
 		DeviceType string `yaml:"deviceType"`
 		User       struct {
 			Enabled      bool           `yaml:"enabled"`
@@ -49,12 +53,14 @@ type ConfigurationData struct {
 			PortForwards []portForwards `yaml:"portForwards"`
 		} `yaml:"user"`
 		Bridge struct {
-			Enabled    bool   `yaml:"enabled"`
-			ID         string `yaml:"id"`
-			Interface  string `yaml:"interface"`
-			MacAddress string `yaml:"mac"`
-			Helper     string `yaml:"helper"`
-		}
+			Enabled    bool `yaml:"enabled"`
+			Interfaces []struct {
+				ID         string `yaml:"id"`
+				Interface  string `yaml:"interface"`
+				MacAddress string `yaml:"mac"`
+				Helper     string `yaml:"helper"`
+			} `yaml:"interfaces"`
+		} `yaml:"bridge"`
 		Tap struct {
 			Enabled      bool   `yaml:"enabled"`
 			ID           string `yaml:"id"`
@@ -73,8 +79,12 @@ type ConfigurationData struct {
 	} `yaml:"ssh"`
 	Disks struct {
 		BlockDevice string `yaml:"blockDevice"`
-		HardDisk    string `yaml:"hardDisk"`
-		ISOCDrom    string `yaml:"cdrom"`
+		HardDisk    struct {
+			Format    string `yaml:"format"`
+			Interface string `yaml:"if"`
+			File      string `yaml:"file"`
+		} `yaml:"hardDisk"`
+		ISOCDrom string `yaml:"cdrom"`
 	} `yaml:"disks"`
 	Display struct {
 		EnableGraphics bool   `yaml:"enableGraphics"`
@@ -146,8 +156,6 @@ func NewConfigData() (configData *ConfigurationData) {
 	configData.Net.DeviceType = "e1000"
 
 	configData.Net.User.ID = "mynet0"
-
-	configData.Net.Bridge.ID = "mybr0"
 
 	configData.RunAsDaemon = false
 

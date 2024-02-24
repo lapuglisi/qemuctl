@@ -105,7 +105,7 @@ func (monitor *QemuMonitor) GetPidFromPidFile() (procPid int, err error) {
 func (monitor *QemuMonitor) WaitForPid() (procPid int, err error) {
 	var filePath string = monitor.GetPidFilePath()
 	var fileData []byte
-	var sleepNanos time.Duration = time.Duration(500 * 1000 * 1000) // 500 milliseconds
+	var sleepNanos time.Duration = time.Duration(1000 * 1000 * 1000) // 500 milliseconds
 
 	for {
 		log.Printf("[WaitForPid] stating file '%s'", filePath)

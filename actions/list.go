@@ -49,7 +49,7 @@ func (action *ListAction) Run(arguments []string) (err error) {
 		if action.namesOnly {
 			headings = fmt.Sprintf("%-32s", "MACHINE")
 		} else {
-			headings = fmt.Sprintf("%-32s %-16s %-16s %-12s", "MACHINE", "STATUS", "SSH", "QEMU PID")
+			headings = fmt.Sprintf("%-32s %-16s %-12s", "MACHINE", "STATUS", "QEMU PID")
 		}
 		fmt.Println(headings)
 		fmt.Printf("%s\n", strings.Repeat("-", len(headings)))
@@ -65,17 +65,11 @@ func (action *ListAction) Run(arguments []string) (err error) {
 				qemuPid = fmt.Sprint(machine.QemuPid)
 			}
 
-			/* Format SSH string  */
-			sshString := "N/A"
-			if machine.SSHLocalPort > 0 {
-				sshString = fmt.Sprintf("127.0.0.1:%d", machine.SSHLocalPort)
-			}
-
 			if action.namesOnly {
 				fmt.Println(machine.Name)
 			} else {
-				fmt.Printf("%-32s %-16s %-16s %-12s\n",
-					machine.Name, machine.Status, sshString, qemuPid)
+				fmt.Printf("%-32s %-16s %-12s\n",
+					machine.Name, machine.Status, qemuPid)
 			}
 		}
 	}
@@ -86,4 +80,27 @@ func (action *ListAction) Run(arguments []string) (err error) {
 
 func (action *ListAction) getMachine(machineName string) (machine *runtime.Machine) {
 	return runtime.NewMachine(machineName)
+}
+
+func (action *ListAction) getMachines(machineStatus string) (machines []string) {
+	machines = make([]string, 0)
+	qemuctlDir := runtime.GetMachinesBaseDir()
+
+	/* Iterate through subdirs */
+	dirEntries, err := os.ReadDir(qemuctlDir)
+	if err != nil {
+		return nil
+	}
+
+	for _, _value := range dirEntries {
+		if _value.Type().IsDir() {
+			machine := action.getMachine(_value.Name())
+
+			if machine.Status == machineStatus {
+				machines = append(machines, machine.Name)
+			}
+		}
+	}
+
+	return machines
 }

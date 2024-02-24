@@ -149,6 +149,15 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 	}
 
 	/*
+	 * PCI Passthrough spec
+	 */
+	if cd.PCI.Passthrough {
+		for _, device := range cd.PCI.Devices {
+			qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", fmt.Sprintf("vfio-pci,host=%s", device))
+		}
+	}
+
+	/*
 	 * Display specification
 	 */
 	if !cd.Display.EnableGraphics {
@@ -173,7 +182,7 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 
 	// Spice is enabled?
 	if cd.Display.Spice.Enabled {
-		spiceSpec := fmt.Sprintf("port=%d%s,ipv4=%s,ipv6=%s,tls-port=%d,disable-ticketing=%s,agent-mouse=%s,password=%s,gl=%s,unix=on",
+		spiceSpec := fmt.Sprintf("port=%d%s,ipv4=%s,ipv6=%s,tls-port=%d,disable-ticketing=%s,agent-mouse=%s,gl=%s,unix=on",
 			cd.Display.Spice.Port,
 			qemu.getKeyValuePair(len(cd.Display.Spice.Address) > 0, ",addr", cd.Display.Spice.Address),
 			qemu.getBoolString(cd.Display.Spice.EnableIPv4, "on", "off"),
@@ -181,7 +190,6 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 			cd.Display.Spice.TLSPort,
 			qemu.getBoolString(cd.Display.Spice.DisableTicketing, "on", "off"),
 			qemu.getBoolString(cd.Display.Spice.EnableAgentMouse, "on", "off"),
-			cd.Display.Spice.Password,
 			qemu.getBoolString(cd.Display.Spice.OpenGL, "on", "off"))
 
 		qemuArgs = qemu.appendQemuArg(qemuArgs, "-spice", spiceSpec)
@@ -268,64 +276,68 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 		 */
 		if cd.Net.Bridge.Enabled {
 			//-- Device specification
-			netSpec = fmt.Sprintf("virtio-net-pci,netdev=%s", cd.Net.Bridge.ID)
-			if len(cd.Net.Bridge.MacAddress) > 0 {
-				netSpec = fmt.Sprintf("%s,mac=%s", netSpec, cd.Net.Bridge.MacAddress)
-			} else {
-				macAddr, err := qemu.generateQemuMacAdress()
-				if err == nil {
-					netSpec = fmt.Sprintf("%s,mac=%s", netSpec, macAddr)
+			for _, bridge := range cd.Net.Bridge.Interfaces {
+				netSpec = fmt.Sprintf("virtio-net-pci,netdev=%s", bridge.ID)
+				if len(bridge.MacAddress) > 0 {
+					netSpec = fmt.Sprintf("%s,mac=%s", netSpec, bridge.MacAddress)
 				} else {
-					log.Printf("[qemuctl::qemu] error while generating mac address: %s\n", err.Error())
+					macAddr, err := qemu.generateQemuMacAdress()
+					if err == nil {
+						netSpec = fmt.Sprintf("%s,mac=%s", netSpec, macAddr)
+					} else {
+						log.Printf("[qemuctl::qemu] error while generating mac address: %s\n", err.Error())
+					}
 				}
-			}
-			qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", netSpec)
+				qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", netSpec)
 
-			// Bridge definition
-			netSpec = fmt.Sprintf("bridge,id=%s", cd.Net.Bridge.ID)
+				// Bridge definition
+				netSpec = fmt.Sprintf("bridge,id=%s", bridge.ID)
 
-			if len(cd.Net.Bridge.Interface) > 0 {
-				netSpec = fmt.Sprintf("%s,br=%s", netSpec, cd.Net.Bridge.Interface)
-			}
-			if len(cd.Net.Bridge.Helper) > 0 {
-				netSpec = fmt.Sprintf("%s,helper=%s", netSpec, cd.Net.Bridge.Helper)
-			}
+				if len(bridge.Interface) > 0 {
+					netSpec = fmt.Sprintf("%s,br=%s", netSpec, bridge.Interface)
+				}
+				if len(bridge.Helper) > 0 {
+					netSpec = fmt.Sprintf("%s,helper=%s", netSpec, bridge.Helper)
+				}
 
-			qemuArgs = qemu.appendQemuArg(qemuArgs, "-netdev", netSpec)
+				qemuArgs = qemu.appendQemuArg(qemuArgs, "-netdev", netSpec)
+			}
 		}
 
 		if cd.Net.Tap.Enabled {
-			netSpec = fmt.Sprintf("virtio-net-pci,netdev=%s", cd.Net.Tap.ID)
-			if len(cd.Net.Tap.MacAddress) > 0 {
-				netSpec = fmt.Sprintf("%s,mac=%s", netSpec, cd.Net.Bridge.MacAddress)
-			} else {
-				macAddr, err := qemu.generateQemuMacAdress()
-				if err == nil {
-					netSpec = fmt.Sprintf("%s,mac=%s", netSpec, macAddr)
+			/*
+				netSpec = fmt.Sprintf("virtio-net-pci,netdev=%s", cd.Net.Tap.ID)
+				if len(cd.Net.Tap.MacAddress) > 0 {
+					netSpec = fmt.Sprintf("%s,mac=%s", netSpec, cd.Net.Bridge.MacAddress)
 				} else {
-					log.Printf("[qemuctl::qemu] error while generating mac address: %s\n", err.Error())
+					macAddr, err := qemu.generateQemuMacAdress()
+					if err == nil {
+						netSpec = fmt.Sprintf("%s,mac=%s", netSpec, macAddr)
+					} else {
+						log.Printf("[qemuctl::qemu] error while generating mac address: %s\n", err.Error())
+					}
 				}
-			}
 
-			qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", netSpec)
+				qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", netSpec)
 
-			netSpec = fmt.Sprintf("tap,id=%s", cd.Net.Tap.ID)
-			if len(cd.Net.Tap.TapInterface) > 0 {
-				netSpec = fmt.Sprintf("%s,ifname=%s", netSpec, cd.Net.Tap.TapInterface)
-			}
+				netSpec = fmt.Sprintf("tap,id=%s", cd.Net.Tap.ID)
+				if len(cd.Net.Tap.TapInterface) > 0 {
+					netSpec = fmt.Sprintf("%s,ifname=%s", netSpec, cd.Net.Tap.TapInterface)
+				}
 
-			if len(cd.Net.Tap.Bridge) > 0 {
-				netSpec = fmt.Sprintf("%s,br=%s", netSpec, cd.Net.Tap.Bridge)
-			}
+				if len(cd.Net.Tap.Bridge) > 0 {
+					netSpec = fmt.Sprintf("%s,br=%s", netSpec, cd.Net.Tap.Bridge)
+				}
 
-			// TODO: make it wiser
-			if cd.Net.Tap.Scripts.Enabled {
-				netSpec = fmt.Sprintf("%s,script=%s,downscript=%s",
-					netSpec, cd.Net.Tap.Scripts.UpScript, cd.Net.Tap.Scripts.DownScript)
-			} else {
-				netSpec = fmt.Sprintf("%s,script=no,downscript=no", netSpec)
-			}
-			qemuArgs = qemu.appendQemuArg(qemuArgs, "-netdev", netSpec)
+				// TODO: make it wiser
+				if cd.Net.Tap.Scripts.Enabled {
+					netSpec = fmt.Sprintf("%s,script=%s,downscript=%s",
+						netSpec, cd.Net.Tap.Scripts.UpScript, cd.Net.Tap.Scripts.DownScript)
+				} else {
+					netSpec = fmt.Sprintf("%s,script=no,downscript=no", netSpec)
+				}
+				qemuArgs = qemu.appendQemuArg(qemuArgs, "-netdev", netSpec)
+			*/
 		}
 	}
 
@@ -335,15 +347,19 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 	if len(cd.Disks.BlockDevice) > 0 { // TODO: Use stat to check whether it is a valid block device
 		driveName := "xvda"
 		// Appends drive/device specification
-		qemuArgs = qemu.appendQemuArg(qemuArgs, "-device", fmt.Sprintf("virtio-blk-pci,drive=%s", driveName))
-
-		// Appends block device configuration
 		qemuArgs = qemu.appendQemuArg(qemuArgs,
 			"-blockdev",
 			fmt.Sprintf("node-name=%s,driver=raw,file.driver=host_device,file.filename=%s", driveName, cd.Disks.BlockDevice))
 	} else {
 		// -- Otherwise, we finally add hard disk info
-		qemuArgs = append(qemuArgs, cd.Disks.HardDisk)
+		driveIf := "ide"
+		if len(cd.Disks.HardDisk.Interface) > 0 {
+			driveIf = cd.Disks.HardDisk.Interface
+		}
+		qemuArgs = qemu.appendQemuArg(qemuArgs,
+			"-drive",
+			fmt.Sprintf("format=%s,file=%s,if=%s", cd.Disks.HardDisk.Format, cd.Disks.HardDisk.File, driveIf))
+		// qemuArgs = append(qemuArgs, cd.Disks.HardDisk)
 	}
 
 	/* Add RTC (guest clock) spec */
