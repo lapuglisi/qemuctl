@@ -17,6 +17,8 @@ const (
 	RuntimeBaseDirName      string = "qemuctl"
 	RuntimeQemuPIDFileName  string = "qemu.pid"
 	RuntimeAutoStartDirName string = "autostart"
+	RuntimeVNCViewerPath    string = "/usr/bin/vncviewer"
+	RuntimeSpiceViewerPath  string = "/usr/bin/remote-viewer"
 )
 
 func GetRuntimeDir() string {
@@ -165,4 +167,114 @@ func CopyFile(source string, target string) (err error) {
 	}
 
 	return nil
+}
+
+func LinkFile(source string, target string) (err error) {
+
+	log.Printf("[qemuctl::runtime::link] linking file '%s' to '%s'...\n", source, target)
+
+	return os.Symlink(source, target)
+}
+
+func LaunchVNCViewer(connect string) (err error) {
+	var procAttrs *os.ProcAttr = nil
+	var procState *os.ProcessState = nil
+
+	// TODO: use the log feature; DONE
+	log.Println("[QemuCommand::Launch] Executing vncviewer with:")
+	log.Printf("vncviewer ....... %s\n", RuntimeVNCViewerPath)
+	log.Printf("vnc args ........ %s\n", connect)
+
+	/* Actual execution of VNC Viewr */
+	err = nil
+
+	log.Printf("[launch] creating vncviewer command struct")
+	procAttrs = &os.ProcAttr{
+		Dir: os.ExpandEnv("$HOME"),
+		Env: os.Environ(),
+		Files: []*os.File{
+			os.Stdin,
+			os.Stdout,
+			os.Stderr,
+		},
+		Sys: nil,
+	}
+	execArgs := make([]string, 0)
+	execArgs = append(execArgs, RuntimeVNCViewerPath)
+	execArgs = append(execArgs, connect)
+
+	log.Printf("[launch] starting qemu process")
+	vncProcess, err := os.StartProcess(RuntimeVNCViewerPath, execArgs, procAttrs)
+	if err != nil {
+		log.Printf("[launch] error starting process: %s", err.Error())
+		return err
+	}
+
+	log.Printf("[launch] waiting for vncviewer process to finish")
+
+	procState, err = vncProcess.Wait()
+	if err != nil {
+		log.Printf("[launch] waiting for qemu command failed: %s (exit code: %d)",
+			err.Error(), procState.ExitCode())
+
+		vncProcess.Kill()
+		return err
+	}
+
+	return err
+}
+
+func LaunchSpiceViewer(host string, port int) (err error) {
+	var procAttrs *os.ProcAttr = nil
+	var procState *os.ProcessState = nil
+	var spiceArgs string
+
+	if len(host) == 0 {
+		spiceArgs = fmt.Sprintf("spice://127.0.0.1:%d", port)
+	} else {
+		spiceArgs = fmt.Sprintf("spice://%s:%d", host, port)
+	}
+
+	// TODO: use the log feature; DONE
+	log.Println("[LaunchSpiceViewer] Executing Spice with:")
+	log.Printf("remote-viewer ....... %s\n", RuntimeSpiceViewerPath)
+	log.Printf("spice args ......... %s\n", spiceArgs)
+
+	/* Actual execution of VNC Viewr */
+	err = nil
+
+	log.Printf("[LaunchSpiceViewer] creating remote-viewer command struct")
+	procAttrs = &os.ProcAttr{
+		Dir: os.ExpandEnv("$HOME"),
+		Env: os.Environ(),
+		Files: []*os.File{
+			os.Stdin,
+			os.Stdout,
+			os.Stderr,
+		},
+		Sys: nil,
+	}
+	execArgs := make([]string, 0)
+	execArgs = append(execArgs, RuntimeSpiceViewerPath)
+	execArgs = append(execArgs, spiceArgs)
+
+	log.Printf("[LaunchSpiceViewer] starting remote-viewer process")
+	vncProcess, err := os.StartProcess(RuntimeSpiceViewerPath, execArgs, procAttrs)
+	if err != nil {
+		log.Printf("[LaunchSpiceViewer] error starting process: %s", err.Error())
+		return err
+	}
+
+	log.Printf("[LaunchSpiceViewer] waiting for remote-viewer process to finish")
+
+	procState, err = vncProcess.Wait()
+	if err != nil {
+		log.Printf("[LaunchSpiceViewer] waiting for remote-viewer command failed: %s (exit code: %d)",
+			err.Error(), procState.ExitCode())
+
+		vncProcess.Kill()
+		return err
+	}
+
+	return err
 }

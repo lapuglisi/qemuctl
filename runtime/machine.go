@@ -118,7 +118,7 @@ func NewMachine(machineName string) (machine *Machine) {
 			log.Printf("[machine] invalid PID #%d for machine '%s'", machineData.QemuPid, machineName)
 			log.Printf("[machine] PID %d is not valid, machine is therefore degraded; updating machine status", machineData.QemuPid)
 			machine.QemuPid = 0
-			machine.Status = MachineStatusStopped
+			machine.Status = MachineStatusDegraded
 			machine.SSHLocalPort = 0
 			machine.UpdateData()
 		}

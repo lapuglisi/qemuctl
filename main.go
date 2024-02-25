@@ -113,6 +113,11 @@ func main() {
 			action := actions.DisableAction{}
 			err = action.Run(execArgs)
 		}
+	case "attach":
+		{
+			action := actions.AttachAction{}
+			err = action.Run(execArgs)
+		}
 	default:
 		{
 			fmt.Printf("[error] Unknown action '%s'\n", action)

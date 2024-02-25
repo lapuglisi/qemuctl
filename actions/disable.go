@@ -16,9 +16,7 @@ type DisableAction struct {
 }
 
 func (action *DisableAction) Run(arguments []string) (err error) {
-	var flagSet *flag.FlagSet = flag.NewFlagSet("qemuctl start", flag.ExitOnError)
-
-	flagSet.BoolVar(&action.doForce, "force", false, "destroys machine if it already exists")
+	var flagSet *flag.FlagSet = flag.NewFlagSet("qemuctl disable", flag.ExitOnError)
 
 	err = flagSet.Parse(arguments)
 	if err != nil {

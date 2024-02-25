@@ -5,27 +5,26 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
 
 	runtime "github.com/lapuglisi/qemuctl/runtime"
 )
 
 type EnableAction struct {
 	machineName string
-	doForce     bool
+	doLink      bool
 }
 
 func (action *EnableAction) Run(arguments []string) (err error) {
-	var flagSet *flag.FlagSet = flag.NewFlagSet("qemuctl start", flag.ExitOnError)
+	var flagSet *flag.FlagSet = flag.NewFlagSet("qemuctl enable", flag.ExitOnError)
 
-	flagSet.BoolVar(&action.doForce, "force", false, "destroys machine if it already exists")
+	flagSet.BoolVar(&action.doLink, "link", false, "link config file instead of copying")
 
 	err = flagSet.Parse(arguments)
 	if err != nil {
 		return err
 	}
 
-	action.machineName = arguments[0]
+	action.machineName = flagSet.Args()[0]
 
 	fmt.Printf("[qemuctl] enabling machine '%s'...", action.machineName)
 
@@ -66,12 +65,17 @@ func (action *EnableAction) handleEnable() (err error) {
 				currentConf := currentMachine.ConfigFile
 				log.Printf("[qemuctl::actions::enable] enabling machine conf '%s'...\n", currentConf)
 
-				targetConf := fmt.Sprintf("%s/%s", autoStartDir, path.Base(currentConf))
-				log.Printf("[qemuctl::actions::enable] copying '%s' to '%s'...",
-					currentMachine.ConfigFile, targetConf)
+				targetConf := fmt.Sprintf("%s/%s.conf", autoStartDir, currentMachine.Name)
 
-				err = runtime.CopyFile(currentConf, targetConf)
+				if action.doLink {
+					log.Printf("[qemuctl::actions::enable] linking '%s' to '%s'...",
+						currentMachine.ConfigFile, targetConf)
+				} else {
+					log.Printf("[qemuctl::actions::enable] copying '%s' to '%s'...",
+						currentMachine.ConfigFile, targetConf)
 
+					err = runtime.CopyFile(currentConf, targetConf)
+				}
 				machineFound = true
 				break
 			}
