@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 
-	qemuctl_helpers "github.com/lapuglisi/qemuctl/helpers"
 	qemuctl_runtime "github.com/lapuglisi/qemuctl/runtime"
 )
 
@@ -19,7 +18,7 @@ const (
 
 func (action *ServiceAction) Run(arguments []string) (err error) {
 	// get runtime directory
-	var startAction StartAction
+	var createAction CreateAction
 	var stopAction StopAction
 	var autoStartDir string = fmt.Sprintf("%s/%s", qemuctl_runtime.GetSystemConfDir(), qemuctl_runtime.RuntimeAutoStartDirName)
 	var serviceAction string = "start"
@@ -38,17 +37,10 @@ func (action *ServiceAction) Run(arguments []string) (err error) {
 				currentConf := fmt.Sprintf("%s/%s", autoStartDir, entry.Name())
 				log.Printf("[qemuctl::actions::service::start] found config file '%s'...\n", currentConf)
 
-				configHandler := qemuctl_helpers.NewConfigHandler(currentConf)
-				configData, err := configHandler.ParseConfigFile()
-				if err != nil {
-					log.Printf("[qemuctl::actions::service::start] error while parsing file '%s': %s\n",
-						currentConf, err.Error())
-				}
+				log.Printf("[qemuctl::actions::service::start] creating machine from config '%s'...\n", currentConf)
 
-				log.Printf("[qemuctl::actions::service] starting machine '%s'...\n", configData.Machine.MachineName)
-
-				startAction = StartAction{}
-				startAction.Run([]string{configData.Machine.MachineName})
+				createAction = CreateAction{}
+				createAction.Run([]string{"-config", currentConf})
 			}
 		}
 

@@ -17,7 +17,7 @@ type CreateAction struct {
 }
 
 func (action *CreateAction) Run(arguments []string) (err error) {
-	var flagSet *flag.FlagSet = flag.NewFlagSet("qemuctl start", flag.ExitOnError)
+	var flagSet *flag.FlagSet = flag.NewFlagSet("qemuctl create", flag.ExitOnError)
 
 	flagSet.StringVar(&action.configFile, "config", "", "YAML configuration file")
 	flagSet.BoolVar(&action.doForce, "force", false, "destroys machine if it already exists")
@@ -67,7 +67,7 @@ func (action *CreateAction) handleCreate() (err error) {
 	if machine.Exists() {
 		existsMessage := fmt.Sprintf("machine '%s' exists", machine.Name)
 		if action.doForce {
-			fmt.Printf("\n== '--force' specified: destroing machine '%s' exists\n", machine.Name)
+			fmt.Printf("\n== '--force' specified: destroing machine '%s'\n", machine.Name)
 			if !machine.Destroy() {
 				fmt.Println("\033[31merror!\033[0m")
 				return fmt.Errorf("could not destroy machine '%s'", machine.Name)
@@ -75,6 +75,7 @@ func (action *CreateAction) handleCreate() (err error) {
 
 			machine.CreateRuntime()
 		} else {
+			log.Printf("[qemuctl::create] machine '%s' exists and -force was not specified.", machine.Name)
 			fmt.Println("\033[31merror!\033[0m")
 			return fmt.Errorf(existsMessage)
 		}
