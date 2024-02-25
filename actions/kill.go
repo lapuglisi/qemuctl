@@ -56,7 +56,7 @@ func (action *KillAction) Run(arguments []string) (err error) {
 	if err != nil {
 		fmt.Printf("\033[31;1merror\033[0m: %s\n", err.Error())
 	} else {
-		fmt.Printf("\033[32;1ok!\033[0m\n")
+		fmt.Printf("\033[32;1mok!\033[0m\n")
 	}
 
 	return err

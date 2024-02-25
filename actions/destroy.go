@@ -3,6 +3,7 @@ package qemuctl_actions
 import (
 	"flag"
 	"fmt"
+	"log"
 
 	runtime "github.com/lapuglisi/qemuctl/runtime"
 )
@@ -16,6 +17,7 @@ func (action *DestroyAction) Run(arguments []string) (err error) {
 	var machine *runtime.Machine
 	var flagSet *flag.FlagSet = flag.NewFlagSet("qemuctl destroy", flag.ExitOnError)
 
+	flagSet.StringVar(&action.machineName, "machine", "", "machine to destroy")
 	flagSet.BoolVar(&action.forceDestroy, "force", false, "destroys machine even if is started")
 
 	err = flagSet.Parse(arguments)
@@ -23,14 +25,11 @@ func (action *DestroyAction) Run(arguments []string) (err error) {
 		return err
 	}
 
-	action.machineName = flagSet.Args()[0]
-
 	if len(action.machineName) == 0 {
 		return fmt.Errorf("machine name is mandatory")
 	}
 
 	machine = runtime.NewMachine(action.machineName)
-
 	if !machine.Exists() {
 		return fmt.Errorf("machine %s dos not exist", action.machineName)
 	}
@@ -45,6 +44,10 @@ func (action *DestroyAction) Run(arguments []string) (err error) {
 			fmt.Printf("[qemuctl] \033[33mwarning\033[0m: machine '%s' is started, cannot destroy!\n", action.machineName)
 			return nil
 		}
+	} else {
+		log.Printf("[qemuctl::destroy] '%s' machine state: %s\n", machine.Name, machine.Status)
+		killAction := KillAction{}
+		killAction.Run([]string{machine.Name})
 	}
 
 	fmt.Printf("[qemuctl] destroying machine '%s'... ", action.machineName)

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	qemuctl_helpers "github.com/lapuglisi/qemuctl/helpers"
 	qemuctl_runtime "github.com/lapuglisi/qemuctl/runtime"
 )
 
@@ -19,7 +20,6 @@ const (
 func (action *ServiceAction) Run(arguments []string) (err error) {
 	// get runtime directory
 	var createAction CreateAction
-	var stopAction StopAction
 	var autoStartDir string = fmt.Sprintf("%s/%s", qemuctl_runtime.GetSystemConfDir(), qemuctl_runtime.RuntimeAutoStartDirName)
 	var serviceAction string = "start"
 
@@ -47,11 +47,25 @@ func (action *ServiceAction) Run(arguments []string) (err error) {
 	case "stop":
 		{
 			log.Printf("[qemuctl::actions::service::stop] stopping running machines...\n")
-			listAction := ListAction{}
-			machines := listAction.getMachines(qemuctl_runtime.MachineStatusRunning)
-			for _, machine := range machines {
-				stopAction = StopAction{}
-				stopAction.Run([]string{machine})
+
+			dirEntries, _ := os.ReadDir(autoStartDir)
+			for _, entry := range dirEntries {
+				currentConf := fmt.Sprintf("%s/%s", autoStartDir, entry.Name())
+
+				log.Printf("[qemuctl::actions::service::stop] found config file '%s'...\n", currentConf)
+				log.Printf("[qemuctl::actions::service::stop] destroying machine from config '%s'...\n", currentConf)
+
+				configData := qemuctl_helpers.NewConfigHandler(currentConf)
+				data, err := configData.ParseConfigFile()
+				if err != nil {
+					log.Printf("[qemuctl::actions::service::stop] error while loading config file '%s': %s.\n",
+						currentConf, err.Error())
+				} else {
+					destroyAction := DestroyAction{}
+					destroyAction.Run([]string{
+						"-machine", data.Machine.MachineName,
+						"-force", "true"})
+				}
 			}
 
 		}
