@@ -4,16 +4,14 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	actions "github.com/lapuglisi/qemuctl/actions"
 	runtime "github.com/lapuglisi/qemuctl/runtime"
 )
 
 func usage() {
-	fmt.Println()
-	fmt.Println("usage:")
-	fmt.Printf("    qemuctl {%s} OPTIONS\n", strings.Join(actions.QemuctlAllActions, " | "))
+	action := actions.HelpAction{}
+	action.Run(nil)
 }
 
 func signalHandler(signal os.Signal) {
@@ -50,79 +48,8 @@ func main() {
 	runtime.SetupSignalHandler(signalHandler)
 
 	fmt.Println()
-	switch action {
-	case "create":
-		{
-			action := actions.CreateAction{}
-			err = action.Run(execArgs)
-			break
-		}
-	case "destroy":
-		{
-			action := actions.DestroyAction{}
-			err = action.Run(execArgs)
-			break
-		}
-	case "kill":
-		{
-			action := actions.KillAction{}
-			err = action.Run(execArgs)
-			break
-		}
-	case "start":
-		{
-			action := actions.StartAction{}
-			err = action.Run(execArgs)
-			break
-		}
-	case "stop":
-		{
-			action := actions.StopAction{}
-			err = action.Run(execArgs)
-			break
-		}
-	case "status":
-		{
-			action := actions.StatusAction{}
-			err = action.Run(execArgs)
-			break
-		}
-	case "edit":
-		{
-			action := actions.EditAction{}
-			err = action.Run(execArgs)
-		}
-	case "list":
-		{
-			action := actions.ListAction{}
-			err = action.Run(execArgs)
-		}
-	case "service":
-		{
-			action := actions.ServiceAction{}
-			err = action.Run(execArgs)
-		}
-
-	case "enable":
-		{
-			action := actions.EnableAction{}
-			err = action.Run(execArgs)
-		}
-	case "disable":
-		{
-			action := actions.DisableAction{}
-			err = action.Run(execArgs)
-		}
-	case "attach":
-		{
-			action := actions.AttachAction{}
-			err = action.Run(execArgs)
-		}
-	default:
-		{
-			fmt.Printf("[error] Unknown action '%s'\n", action)
-		}
-	}
+	appAction := actions.GetActionInterface(action)
+	err = appAction.Run(execArgs)
 
 	if err != nil {
 		fmt.Printf("[\033[31merror\033[0m] %s\n", err.Error())

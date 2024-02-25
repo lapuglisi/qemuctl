@@ -5,12 +5,14 @@ import (
 	"os"
 	"strings"
 
+	helpers "github.com/lapuglisi/qemuctl/helpers"
 	runtime "github.com/lapuglisi/qemuctl/runtime"
 )
 
 type ListAction struct {
 	showHeadings bool
 	namesOnly    bool
+	showFull     bool
 }
 
 func (action *ListAction) Run(arguments []string) (err error) {
@@ -27,6 +29,11 @@ func (action *ListAction) Run(arguments []string) (err error) {
 		case "--names-only":
 			{
 				action.namesOnly = true
+				break
+			}
+		case "--full":
+			{
+				action.showFull = true
 				break
 			}
 		default:
@@ -50,6 +57,9 @@ func (action *ListAction) Run(arguments []string) (err error) {
 			headings = fmt.Sprintf("%-32s", "MACHINE")
 		} else {
 			headings = fmt.Sprintf("%-32s %-16s %-12s", "MACHINE", "STATUS", "QEMU PID")
+			if action.showFull {
+				headings = fmt.Sprintf("%s %-16s %-16s", headings, "VNC", "SPICE")
+			}
 		}
 		fmt.Println(headings)
 		fmt.Printf("%s\n", strings.Repeat("-", len(headings)))
@@ -68,8 +78,26 @@ func (action *ListAction) Run(arguments []string) (err error) {
 			if action.namesOnly {
 				fmt.Println(machine.Name)
 			} else {
-				fmt.Printf("%-32s %-16s %-12s\n",
-					machine.Name, machine.Status, qemuPid)
+				fmt.Printf("%-32s %-16s %-12s", machine.Name, machine.Status, qemuPid)
+				if action.showFull {
+					ch := helpers.NewConfigHandler(machine.ConfigFile)
+					cd, err := ch.ParseConfigFile()
+					if err == nil {
+						fmt.Print(" ")
+						if cd.Display.VNC.Enabled {
+							fmt.Printf("%-16s", cd.Display.VNC.Listen)
+						} else {
+							fmt.Printf("%s", strings.Repeat(" ", 16))
+						}
+
+						if cd.Display.Spice.Enabled {
+							fmt.Printf("%-16s", fmt.Sprintf("%s:%d", cd.Display.Spice.Address, cd.Display.Spice.Port))
+						} else {
+							fmt.Printf("%s", strings.Repeat(" ", 16))
+						}
+					}
+				}
+				fmt.Println()
 			}
 		}
 	}
