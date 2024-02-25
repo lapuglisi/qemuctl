@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	actions "github.com/lapuglisi/qemuctl/actions"
 	runtime "github.com/lapuglisi/qemuctl/runtime"
@@ -12,7 +13,7 @@ import (
 func usage() {
 	fmt.Println()
 	fmt.Println("usage:")
-	fmt.Println("    qemuctl {start|stop|seila} OPTIONS")
+	fmt.Printf("    qemuctl {%s} OPTIONS\n", strings.Join(actions.QemuctlAllActions, " | "))
 }
 
 func signalHandler(signal os.Signal) {
