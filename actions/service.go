@@ -10,7 +10,6 @@ import (
 )
 
 type ServiceAction struct {
-	forceStart bool
 }
 
 const (

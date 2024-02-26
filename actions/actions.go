@@ -42,7 +42,7 @@ func GetActionInterface(action string) (out GenericAction) {
 func GetAllActionStrings() (list []string) {
 	list = make([]string, 0)
 
-	for action, _ := range actionsMap {
+	for action := range actionsMap {
 		list = append(list, action)
 	}
 

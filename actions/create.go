@@ -11,7 +11,6 @@ import (
 )
 
 type CreateAction struct {
-	machine    *runtime.Machine
 	configFile string
 	doForce    bool
 }

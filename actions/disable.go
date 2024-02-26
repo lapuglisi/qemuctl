@@ -12,7 +12,6 @@ import (
 
 type DisableAction struct {
 	machineName string
-	doForce     bool
 }
 
 func (action *DisableAction) Run(arguments []string) (err error) {
