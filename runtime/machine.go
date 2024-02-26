@@ -34,6 +34,7 @@ type MachineData struct {
 	State        string `json:"machineState"`
 	SSHLocalPort int    `json:"sshLocalPort"`
 	BiosFile     string `json:"biosFile"`
+	CommandLine  string `json:"cmdline"`
 }
 
 type Machine struct {
@@ -45,6 +46,7 @@ type Machine struct {
 	ConfigFile       string
 	BiosFile         string
 	initialized      bool
+	CommandLine      string
 }
 
 func NewMachine(machineName string) (machine *Machine) {
@@ -59,6 +61,7 @@ func NewMachine(machineName string) (machine *Machine) {
 		State:        MachineStatusUnknown,
 		SSHLocalPort: 0,
 		BiosFile:     "",
+		CommandLine:  "",
 	}
 
 	machine = &Machine{
@@ -70,6 +73,7 @@ func NewMachine(machineName string) (machine *Machine) {
 		RuntimeDirectory: runtimeDirectory,
 		ConfigFile:       configFile,
 		initialized:      false,
+		CommandLine:      "",
 	}
 
 	fileData, err := os.ReadFile(dataFile)
@@ -90,6 +94,7 @@ func NewMachine(machineName string) (machine *Machine) {
 	machine.QemuPid = machineData.QemuPid
 	machine.SSHLocalPort = machineData.SSHLocalPort
 	machine.Status = machineData.State
+	machine.CommandLine = machineData.CommandLine
 
 	/* Make sure to check if qemu's process is actually running */
 	if machine.IsRunning() {
@@ -188,7 +193,9 @@ func (m *Machine) IsUnknown() bool {
 func (m *Machine) UpdateData() (err error) {
 	var statusFile string = fmt.Sprintf("%s/%s", m.RuntimeDirectory, MachineDataFileName)
 	var fileHandle *os.File
+	var procData []byte
 	var machineData MachineData
+	var commandLine string
 
 	log.Printf("[UpdateStatus] opening file '%s'\n", statusFile)
 	fileHandle, err = os.OpenFile(statusFile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0755)
@@ -197,12 +204,24 @@ func (m *Machine) UpdateData() (err error) {
 	}
 	defer fileHandle.Close()
 
+	/*
+	 * get process command line from /proc
+	 */
+	if m.QemuPid > 0 {
+		procFilePath := fmt.Sprintf("/proc/%d/cmdline", m.QemuPid)
+		procData, err = os.ReadFile(procFilePath)
+		if err == nil {
+			commandLine = strings.ReplaceAll(string(procData), "\x00", " ")
+		}
+	}
+
 	/* populate new MachineData */
 	machineData = MachineData{
 		QemuPid:      m.QemuPid,
 		SSHLocalPort: m.SSHLocalPort,
 		State:        m.Status,
 		BiosFile:     m.BiosFile,
+		CommandLine:  commandLine,
 	}
 
 	switch m.Status {

@@ -21,10 +21,12 @@ func init() {
 	actionsMap["disable"] = &DisableAction{}
 	actionsMap["enable"] = &EnableAction{}
 	actionsMap["help"] = &HelpAction{}
+	actionsMap["info"] = &InfoAction{}
 	actionsMap["kill"] = &KillAction{}
 	actionsMap["list"] = &ListAction{}
 	actionsMap["service"] = &ServiceAction{}
 	actionsMap["start"] = &StartAction{}
+	actionsMap["status"] = &StatusAction{}
 	actionsMap["stop"] = &StopAction{}
 }
 
