@@ -8,6 +8,7 @@ import (
 
 	//"os"
 	"os/exec"
+	"os/user"
 	"regexp"
 	"strings"
 
@@ -100,6 +101,20 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 	if cd.Machine.EnableKVM {
 		qemuArgs = append(qemuArgs, "-enable-kvm")
 	}
+
+	// QEMU should never run as root
+	runAsUser := cd.RunAs
+	if len(runAsUser) == 0 {
+		return nil, fmt.Errorf("machine config must specify 'runAs'")
+	}
+
+	user, err := user.Lookup(runAsUser)
+	if err != nil {
+		fmt.Printf("error: cannot find user '%s'\n", runAsUser)
+		return nil, err
+	}
+
+	qemuArgs = qemu.appendQemuArg(qemuArgs, "-runas", user.Username)
 
 	// -- Machine spec (type and accel)
 	{
@@ -344,6 +359,17 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 	/*
 	 * Disk specification
 	 */
+	// Check for 9P spec
+	if len(cd.Disks.P9.Source) > 0 {
+		if len(cd.Disks.P9.SecurityModel) == 0 {
+			cd.Disks.P9.SecurityModel = "none"
+		}
+
+		p9Spec := fmt.Sprintf("local,path=%s,mount_tag=%s,security_model=%s",
+			cd.Disks.P9.Source, cd.Disks.P9.Tag, cd.Disks.P9.SecurityModel)
+
+		qemuArgs = qemu.appendQemuArg(qemuArgs, "-virtfs", p9Spec)
+	}
 	if len(cd.Disks.BlockDevice) > 0 { // TODO: Use stat to check whether it is a valid block device
 		driveName := "xvda"
 		// Appends drive/device specification

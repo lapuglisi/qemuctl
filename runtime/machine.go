@@ -114,9 +114,13 @@ func NewMachine(machineName string) (machine *Machine) {
 				log.Printf("[machine] looks like the process %d is not there (%s). updating machine status",
 					machineData.QemuPid,
 					err.Error())
-				machine.QemuPid = 0
-				machine.Status = MachineStatusStopped
-				machine.SSHLocalPort = 0
+
+				/*
+				 * machine.QemuPid = 0
+				 * machine.SSHLocalPort = 0
+				 */
+				machine.Status = MachineStatusDegraded
+
 				machine.UpdateData()
 			}
 		} else {

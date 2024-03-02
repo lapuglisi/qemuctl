@@ -9,6 +9,10 @@ import (
 	"syscall"
 )
 
+const (
+	QemuUser = "qemuctl"
+)
+
 func init() {
 
 }
@@ -22,13 +26,14 @@ const (
 )
 
 func GetRuntimeDir() string {
-	var osRunPath string = "/var/run"
-	_, err := os.Stat(osRunPath)
+	var runtimeDir string = "/var/run"
+	_, err := os.Stat(runtimeDir)
 	if os.IsNotExist(err) {
-		osRunPath = "/run"
+		fmt.Printf("ERROR: directory '%s' does not exist.\n", runtimeDir)
+		return ""
 	}
 
-	return fmt.Sprintf("%s/%s", osRunPath, RuntimeBaseDirName)
+	return fmt.Sprintf("%s/%s", runtimeDir, RuntimeBaseDirName)
 }
 
 func GetMachinesBaseDir() string {
@@ -44,15 +49,21 @@ func SetupRuntimeData() (err error) {
 	var etcConfDir string = GetSystemConfDir()
 	var logDir string = "/var/log"
 
-	/* Setup log */
-	logFilePath := fmt.Sprintf("%s/qemuctl.log", logDir)
-	logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0744)
-	if err != nil {
-		return err
+	_, err = os.Stat(qemuctlDir)
+	if os.IsNotExist(err) {
+		fmt.Printf("INFO: directory '%s' does not exist. Creating it.\n", qemuctlDir)
+		os.Mkdir(qemuctlDir, os.ModeDir|os.ModePerm)
 	}
 
-	log.SetOutput(logFile)
-	/**************************/
+	/* Setup log */
+	{
+		logFilePath := fmt.Sprintf("%s/qemuctl.log", logDir)
+		logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0744)
+		if err != nil {
+			return err
+		}
+		log.SetOutput(logFile)
+	}
 
 	err = nil
 
@@ -176,7 +187,7 @@ func LinkFile(source string, target string) (err error) {
 	return os.Symlink(source, target)
 }
 
-func LaunchVNCViewer(connect string) (err error) {
+func LaunchVNCViewer(connect string, background bool) (err error) {
 	var procAttrs *os.ProcAttr = nil
 	var procState *os.ProcessState = nil
 
@@ -210,21 +221,29 @@ func LaunchVNCViewer(connect string) (err error) {
 		return err
 	}
 
-	log.Printf("[launch] waiting for vncviewer process to finish")
+	if !background {
+		log.Printf("[launch] waiting for vncviewer process to finish")
+		procState, err = vncProcess.Wait()
+		if err != nil {
+			log.Printf("[launch] waiting for qemu command failed: %s (exit code: %d)",
+				err.Error(), procState.ExitCode())
 
-	procState, err = vncProcess.Wait()
-	if err != nil {
-		log.Printf("[launch] waiting for qemu command failed: %s (exit code: %d)",
-			err.Error(), procState.ExitCode())
-
-		vncProcess.Kill()
-		return err
+			vncProcess.Kill()
+			return err
+		}
+	} else {
+		err = vncProcess.Signal(syscall.SIGCONT)
+		if err == nil {
+			log.Printf("[launch] vncviewer process running with PID %d", vncProcess.Pid)
+		} else {
+			log.Printf("[launch] vncviewer process error: %s", err.Error())
+		}
 	}
 
 	return err
 }
 
-func LaunchSpiceViewer(host string, port int) (err error) {
+func LaunchSpiceViewer(host string, port int, background bool) (err error) {
 	var procAttrs *os.ProcAttr = nil
 	var procState *os.ProcessState = nil
 	var spiceArgs string
@@ -259,21 +278,28 @@ func LaunchSpiceViewer(host string, port int) (err error) {
 	execArgs = append(execArgs, spiceArgs)
 
 	log.Printf("[LaunchSpiceViewer] starting remote-viewer process")
-	vncProcess, err := os.StartProcess(RuntimeSpiceViewerPath, execArgs, procAttrs)
+	spiceProcess, err := os.StartProcess(RuntimeSpiceViewerPath, execArgs, procAttrs)
 	if err != nil {
 		log.Printf("[LaunchSpiceViewer] error starting process: %s", err.Error())
 		return err
 	}
 
-	log.Printf("[LaunchSpiceViewer] waiting for remote-viewer process to finish")
+	if background {
+		err = spiceProcess.Signal(syscall.SIGCONT)
+		if err == nil {
+			log.Printf("[launch] spice process running with PID %d", spiceProcess.Pid)
+		} else {
+			log.Printf("[launch] spice process error: %s", err.Error())
+		}
+	} else {
+		log.Printf("[LaunchSpiceViewer] waiting for remote-viewer process to finish")
+		procState, err = spiceProcess.Wait()
+		if err != nil {
+			log.Printf("[LaunchSpiceViewer] waiting for remote-viewer command failed: %s (exit code: %d)",
+				err.Error(), procState.ExitCode())
 
-	procState, err = vncProcess.Wait()
-	if err != nil {
-		log.Printf("[LaunchSpiceViewer] waiting for remote-viewer command failed: %s (exit code: %d)",
-			err.Error(), procState.ExitCode())
-
-		vncProcess.Kill()
-		return err
+			spiceProcess.Kill()
+		}
 	}
 
 	return err

@@ -38,6 +38,7 @@ type ConfigurationData struct {
 		} `yaml:"tpm"`
 	} `yaml:"machine"`
 	RunAsDaemon bool   `yaml:"runAsDaemon"`
+	RunAs       string `yaml:"runAs"`
 	Memory      string `yaml:"memory"`
 	CPUs        int64  `yaml:"cpus"`
 	PCI         struct {
@@ -85,6 +86,11 @@ type ConfigurationData struct {
 			File      string `yaml:"file"`
 		} `yaml:"hardDisk"`
 		ISOCDrom string `yaml:"cdrom"`
+		P9       struct {
+			Source        string `yaml:"source"`
+			Tag           string `yaml:"tag"`
+			SecurityModel string `yaml:"securityModel"`
+		} `yaml:"9p"`
 	} `yaml:"disks"`
 	Display struct {
 		EnableGraphics bool   `yaml:"enableGraphics"`

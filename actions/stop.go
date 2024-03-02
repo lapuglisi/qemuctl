@@ -39,7 +39,7 @@ func (action *StopAction) Run(arguments []string) (err error) {
 	err = qemuMonitor.SendShutdownCommand()
 	if err != nil {
 		fmt.Printf("\033[33m error!\033[0m\n")
-		machine.QemuPid = 0
+		//machine.QemuPid = 0
 		machine.SSHLocalPort = 0
 		machine.Status = runtime.MachineStatusDegraded
 		machine.UpdateData()

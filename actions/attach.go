@@ -12,10 +12,12 @@ import (
 
 type AttachAction struct {
 	machineName string
+	background  bool
 }
 
 func (action *AttachAction) Run(arguments []string) (err error) {
 	var flagSet *flag.FlagSet = flag.NewFlagSet("qemuctl attach", flag.ExitOnError)
+	flagSet.BoolVar(&action.background, "bg", false, "run in background")
 
 	err = flagSet.Parse(arguments)
 	if err != nil {
@@ -23,7 +25,7 @@ func (action *AttachAction) Run(arguments []string) (err error) {
 	}
 
 	/* Do flags validation */
-	action.machineName = arguments[0]
+	action.machineName = flagSet.Args()[0]
 	if len(action.machineName) == 0 {
 		flagSet.Usage()
 		return fmt.Errorf("machine name is mandatory")
@@ -66,12 +68,12 @@ func (action *AttachAction) handleAttach() (err error) {
 			vncListen = fmt.Sprintf("127.0.0.1:%s", configData.Display.VNC.Listen)
 		}
 
-		runtime.LaunchVNCViewer(vncListen)
+		runtime.LaunchVNCViewer(vncListen, action.background)
 	} else if configData.Display.Spice.Enabled {
 		log.Printf("[qemuctl::attach] '%s': Attaching to Spice display %s:%d.... ",
 			machine.Name, configData.Display.Spice.Address, configData.Display.Spice.Port)
 
-		runtime.LaunchSpiceViewer(configData.Display.Spice.Address, configData.Display.Spice.Port)
+		runtime.LaunchSpiceViewer(configData.Display.Spice.Address, configData.Display.Spice.Port, action.background)
 	}
 
 	return nil
