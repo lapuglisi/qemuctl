@@ -199,7 +199,7 @@ func LaunchVNCViewer(connect string, background bool) (err error) {
 	/* Actual execution of VNC Viewr */
 	err = nil
 
-	log.Printf("[launch] creating vncviewer command struct")
+	log.Printf("[LaunchVNCViewer] creating vncviewer command struct")
 	procAttrs = &os.ProcAttr{
 		Dir: os.ExpandEnv("$HOME"),
 		Env: os.Environ(),
@@ -214,7 +214,7 @@ func LaunchVNCViewer(connect string, background bool) (err error) {
 	execArgs = append(execArgs, RuntimeVNCViewerPath)
 	execArgs = append(execArgs, connect)
 
-	log.Printf("[launch] starting qemu process")
+	log.Printf("[LaunchVNCViewer] starting %s process", RuntimeVNCViewerPath)
 	vncProcess, err := os.StartProcess(RuntimeVNCViewerPath, execArgs, procAttrs)
 	if err != nil {
 		log.Printf("[launch] error starting process: %s", err.Error())
@@ -222,10 +222,10 @@ func LaunchVNCViewer(connect string, background bool) (err error) {
 	}
 
 	if !background {
-		log.Printf("[launch] waiting for vncviewer process to finish")
+		log.Printf("[LaunchVNCViewer] waiting for vncviewer process to finish")
 		procState, err = vncProcess.Wait()
 		if err != nil {
-			log.Printf("[launch] waiting for qemu command failed: %s (exit code: %d)",
+			log.Printf("[LaunchVNCViewer] waiting for vnviewer command failed: %s (exit code: %d)",
 				err.Error(), procState.ExitCode())
 
 			vncProcess.Kill()
@@ -234,9 +234,9 @@ func LaunchVNCViewer(connect string, background bool) (err error) {
 	} else {
 		err = vncProcess.Signal(syscall.SIGCONT)
 		if err == nil {
-			log.Printf("[launch] vncviewer process running with PID %d", vncProcess.Pid)
+			log.Printf("[LaunchVNCViewer] vncviewer process running with PID %d", vncProcess.Pid)
 		} else {
-			log.Printf("[launch] vncviewer process error: %s", err.Error())
+			log.Printf("[LaunchVNCViewer] vncviewer process error: %s", err.Error())
 		}
 	}
 
