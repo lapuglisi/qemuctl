@@ -378,14 +378,25 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 			fmt.Sprintf("node-name=%s,driver=raw,file.driver=host_device,file.filename=%s", driveName, cd.Disks.BlockDevice))
 	} else {
 		// -- Otherwise, we finally add hard disk info
-		driveIf := "ide"
-		if len(cd.Disks.HardDisk.Interface) > 0 {
-			driveIf = cd.Disks.HardDisk.Interface
+		for _, image := range cd.Disks.Images {
+			driveMedia := "disk"
+			driveIf := "ide"
+			if len(image.Interface) > 0 {
+				driveIf = image.Interface
+			}
+
+			if len(image.Media) > 0 {
+				driveMedia = image.Media
+			}
+			qemuArgs = qemu.appendQemuArg(qemuArgs,
+				"-drive",
+				fmt.Sprintf("format=%s,file=%s,if=%s,media=%s", image.Format, image.File, driveIf, driveMedia))
 		}
-		qemuArgs = qemu.appendQemuArg(qemuArgs,
-			"-drive",
-			fmt.Sprintf("format=%s,file=%s,if=%s", cd.Disks.HardDisk.Format, cd.Disks.HardDisk.File, driveIf))
 		// qemuArgs = append(qemuArgs, cd.Disks.HardDisk)
+
+		if len(cd.Disks.Default) > 0 {
+			qemuArgs = append(qemuArgs, cd.Disks.Default)
+		}
 	}
 
 	/* Add RTC (guest clock) spec */

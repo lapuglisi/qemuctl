@@ -80,17 +80,19 @@ type ConfigurationData struct {
 	} `yaml:"ssh"`
 	Disks struct {
 		BlockDevice string `yaml:"blockDevice"`
-		HardDisk    struct {
+		Images      []struct {
 			Format    string `yaml:"format"`
 			Interface string `yaml:"if"`
 			File      string `yaml:"file"`
-		} `yaml:"hardDisk"`
+			Media     string `yaml:"media"`
+		} `yaml:"images"`
 		ISOCDrom string `yaml:"cdrom"`
 		P9       struct {
 			Source        string `yaml:"source"`
 			Tag           string `yaml:"tag"`
 			SecurityModel string `yaml:"securityModel"`
 		} `yaml:"9p"`
+		Default string `yaml:"default"`
 	} `yaml:"disks"`
 	Display struct {
 		EnableGraphics bool   `yaml:"enableGraphics"`
