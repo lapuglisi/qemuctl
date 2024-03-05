@@ -17,7 +17,6 @@ func (action *DestroyAction) Run(arguments []string) (err error) {
 	var machine *runtime.Machine
 	var flagSet *flag.FlagSet = flag.NewFlagSet("qemuctl destroy", flag.ExitOnError)
 
-	flagSet.StringVar(&action.machineName, "machine", "", "machine to destroy")
 	flagSet.BoolVar(&action.forceDestroy, "force", false, "destroys machine even if is started")
 
 	err = flagSet.Parse(arguments)
@@ -25,6 +24,7 @@ func (action *DestroyAction) Run(arguments []string) (err error) {
 		return err
 	}
 
+	action.machineName = flagSet.Args()[0]
 	if len(action.machineName) == 0 {
 		return fmt.Errorf("machine name is mandatory")
 	}

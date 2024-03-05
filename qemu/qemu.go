@@ -27,6 +27,8 @@ type QemuCommand struct {
 	Monitor       *QemuMonitor
 }
 
+var nodeDevices []string = []string{"xvda", "xvdb", "xvdc"}
+
 func NewQemuCommand(configData *config.ConfigurationData, qemuMonitor *QemuMonitor) (qemu *QemuCommand) {
 	var qemuPath string
 	var qemuBinary string = configData.QemuBinary
@@ -197,15 +199,22 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 
 	// Spice is enabled?
 	if cd.Display.Spice.Enabled {
-		spiceSpec := fmt.Sprintf("port=%d%s,ipv4=%s,ipv6=%s,tls-port=%d,disable-ticketing=%s,agent-mouse=%s,gl=%s,unix=on",
-			cd.Display.Spice.Port,
-			qemu.getKeyValuePair(len(cd.Display.Spice.Address) > 0, ",addr", cd.Display.Spice.Address),
-			qemu.getBoolString(cd.Display.Spice.EnableIPv4, "on", "off"),
-			qemu.getBoolString(cd.Display.Spice.EnableIPv6, "on", "off"),
-			cd.Display.Spice.TLSPort,
-			qemu.getBoolString(cd.Display.Spice.DisableTicketing, "on", "off"),
-			qemu.getBoolString(cd.Display.Spice.EnableAgentMouse, "on", "off"),
-			qemu.getBoolString(cd.Display.Spice.OpenGL, "on", "off"))
+		spiceSpec := ""
+		if cd.Display.Spice.OpenGL {
+			spiceSpec = fmt.Sprintf("disable-ticketing=%s,agent-mouse=%s,gl=true",
+				qemu.getBoolString(cd.Display.Spice.DisableTicketing, "on", "off"),
+				qemu.getBoolString(cd.Display.Spice.EnableAgentMouse, "on", "off"))
+		} else {
+			spiceSpec = fmt.Sprintf("port=%d%s,ipv4=%s,ipv6=%s,tls-port=%d,disable-ticketing=%s,agent-mouse=%s,gl=%s,unix=on",
+				cd.Display.Spice.Port,
+				qemu.getKeyValuePair(len(cd.Display.Spice.Address) > 0, ",addr", cd.Display.Spice.Address),
+				qemu.getBoolString(cd.Display.Spice.EnableIPv4, "on", "off"),
+				qemu.getBoolString(cd.Display.Spice.EnableIPv6, "on", "off"),
+				cd.Display.Spice.TLSPort,
+				qemu.getBoolString(cd.Display.Spice.DisableTicketing, "on", "off"),
+				qemu.getBoolString(cd.Display.Spice.EnableAgentMouse, "on", "off"),
+				qemu.getBoolString(cd.Display.Spice.OpenGL, "on", "off"))
+		}
 
 		qemuArgs = qemu.appendQemuArg(qemuArgs, "-spice", spiceSpec)
 	}
@@ -370,33 +379,38 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 
 		qemuArgs = qemu.appendQemuArg(qemuArgs, "-virtfs", p9Spec)
 	}
-	if len(cd.Disks.BlockDevice) > 0 { // TODO: Use stat to check whether it is a valid block device
-		driveName := "xvda"
+	for _, blockDevice := range cd.Disks.BlockDevices {
+		// TODO: Use stat to check whether it is a valid block device
+		driveName := nodeDevices[0]
+		if len(driveName) > 0 {
+			nodeDevices = nodeDevices[1:]
+		}
+
 		// Appends drive/device specification
 		qemuArgs = qemu.appendQemuArg(qemuArgs,
 			"-blockdev",
-			fmt.Sprintf("node-name=%s,driver=raw,file.driver=host_device,file.filename=%s", driveName, cd.Disks.BlockDevice))
-	} else {
-		// -- Otherwise, we finally add hard disk info
-		for _, image := range cd.Disks.Images {
-			driveMedia := "disk"
-			driveIf := "ide"
-			if len(image.Interface) > 0 {
-				driveIf = image.Interface
-			}
+			fmt.Sprintf("node-name=%s,driver=raw,file.driver=host_device,file.filename=%s", driveName, blockDevice))
+	}
 
-			if len(image.Media) > 0 {
-				driveMedia = image.Media
-			}
-			qemuArgs = qemu.appendQemuArg(qemuArgs,
-				"-drive",
-				fmt.Sprintf("format=%s,file=%s,if=%s,media=%s", image.Format, image.File, driveIf, driveMedia))
+	// -- Disk images list
+	for _, image := range cd.Disks.Images {
+		driveMedia := "disk"
+		driveIf := "ide"
+		if len(image.Interface) > 0 {
+			driveIf = image.Interface
 		}
-		// qemuArgs = append(qemuArgs, cd.Disks.HardDisk)
 
-		if len(cd.Disks.Default) > 0 {
-			qemuArgs = append(qemuArgs, cd.Disks.Default)
+		if len(image.Media) > 0 {
+			driveMedia = image.Media
 		}
+		qemuArgs = qemu.appendQemuArg(qemuArgs,
+			"-drive",
+			fmt.Sprintf("format=%s,file=%s,if=%s,media=%s", image.Format, image.File, driveIf, driveMedia))
+	}
+	// qemuArgs = append(qemuArgs, cd.Disks.HardDisk)
+
+	if len(cd.Disks.Default) > 0 {
+		qemuArgs = append(qemuArgs, cd.Disks.Default)
 	}
 
 	/* Add RTC (guest clock) spec */

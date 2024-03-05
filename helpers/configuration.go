@@ -79,8 +79,8 @@ type ConfigurationData struct {
 		LocalPort int `yaml:"localPort"`
 	} `yaml:"ssh"`
 	Disks struct {
-		BlockDevice string `yaml:"blockDevice"`
-		Images      []struct {
+		BlockDevices []string `yaml:"blockDevices"`
+		Images       []struct {
 			Format    string `yaml:"format"`
 			Interface string `yaml:"if"`
 			File      string `yaml:"file"`
