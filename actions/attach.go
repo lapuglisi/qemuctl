@@ -70,10 +70,24 @@ func (action *AttachAction) handleAttach() (err error) {
 
 		runtime.LaunchVNCViewer(vncListen, action.background)
 	} else if configData.Display.Spice.Enabled {
-		log.Printf("[qemuctl::attach] '%s': Attaching to Spice display %s:%d.... ",
-			machine.Name, configData.Display.Spice.Address, configData.Display.Spice.Port)
+		spiceConnect := ""
+		unixSocket, err := machine.GetSpiceSocketPath()
+		if err == nil {
+			spiceConnect = fmt.Sprintf("spice+unix:///%s", unixSocket)
+			log.Printf("[qemuctl::attach] '%s': Attaching to Spice socket %s.... ",
+				machine.Name, unixSocket)
 
-		runtime.LaunchSpiceViewer(configData.Display.Spice.Address, configData.Display.Spice.Port, action.background)
+			runtime.LaunchSpiceViewer(spiceConnect, action.background)
+		} else {
+			spiceConnect = fmt.Sprintf("spice://%s:%d",
+				runtime.GetValueOrDefault(configData.Display.Spice.Address, "127.0.0.1"),
+				configData.Display.Spice.Port)
+
+			log.Printf("[qemuctl::attach] '%s': Attaching to Spice display %s.... ",
+				machine.Name, spiceConnect)
+
+			runtime.LaunchSpiceViewer(spiceConnect, action.background)
+		}
 	}
 
 	return nil

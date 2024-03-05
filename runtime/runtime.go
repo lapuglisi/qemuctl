@@ -25,6 +25,14 @@ const (
 	RuntimeSpiceViewerPath  string = "/usr/bin/remote-viewer"
 )
 
+func GetValueOrDefault(value string, bypass string) (ret string) {
+	if len(value) == 0 {
+		return bypass
+	}
+
+	return value
+}
+
 func GetRuntimeDir() string {
 	var runtimeDir string = "/var/run"
 	_, err := os.Stat(runtimeDir)
@@ -243,16 +251,10 @@ func LaunchVNCViewer(connect string, background bool) (err error) {
 	return err
 }
 
-func LaunchSpiceViewer(host string, port int, background bool) (err error) {
+func LaunchSpiceViewer(connect string, background bool) (err error) {
 	var procAttrs *os.ProcAttr = nil
 	var procState *os.ProcessState = nil
-	var spiceArgs string
-
-	if len(host) == 0 {
-		spiceArgs = fmt.Sprintf("spice://127.0.0.1:%d", port)
-	} else {
-		spiceArgs = fmt.Sprintf("spice://%s:%d", host, port)
-	}
+	var spiceArgs string = connect
 
 	// TODO: use the log feature; DONE
 	log.Println("[LaunchSpiceViewer] Executing Spice with:")

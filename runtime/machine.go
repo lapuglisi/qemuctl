@@ -47,6 +47,7 @@ type Machine struct {
 	BiosFile         string
 	initialized      bool
 	CommandLine      string
+	SpiceSocket      string
 }
 
 func NewMachine(machineName string) (machine *Machine) {
@@ -74,6 +75,7 @@ func NewMachine(machineName string) (machine *Machine) {
 		ConfigFile:       configFile,
 		initialized:      false,
 		CommandLine:      "",
+		SpiceSocket:      "",
 	}
 
 	fileData, err := os.ReadFile(dataFile)
@@ -344,4 +346,30 @@ func (m *Machine) GetPidFileData() int {
 
 	log.Printf("[GetPidFileData] got process PID = %d", processPID)
 	return processPID
+}
+
+func (m *Machine) GetSpiceSocketPath() (socket string, err error) {
+	var socketName string = fmt.Sprintf("%s-spice-unix.sock", m.Name)
+	var socketPath string = fmt.Sprintf("%s/%s", m.RuntimeDirectory, socketName)
+
+	socket = ""
+
+	_, err = os.Stat(socketPath)
+	if err == nil {
+		os.Chmod(socketPath, 0777)
+		socket = socketPath
+	} else {
+		if os.IsNotExist(err) {
+			err = nil
+			// Create socket file
+			file, err := os.Create(socketPath)
+			if err == nil {
+				file.Chmod(0777)
+				socket = socketPath
+			}
+			defer file.Close()
+		}
+	}
+
+	return socket, err
 }

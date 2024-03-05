@@ -201,9 +201,14 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 	if cd.Display.Spice.Enabled {
 		spiceSpec := ""
 		if cd.Display.Spice.OpenGL {
-			spiceSpec = fmt.Sprintf("disable-ticketing=%s,agent-mouse=%s,gl=true",
+			unixSocket, err := machine.GetSpiceSocketPath()
+			if err != nil {
+				return nil, err
+			}
+			spiceSpec = fmt.Sprintf("disable-ticketing=%s,agent-mouse=%s,gl=on,unix=on,addr=%s",
 				qemu.getBoolString(cd.Display.Spice.DisableTicketing, "on", "off"),
-				qemu.getBoolString(cd.Display.Spice.EnableAgentMouse, "on", "off"))
+				qemu.getBoolString(cd.Display.Spice.EnableAgentMouse, "on", "off"),
+				unixSocket)
 		} else {
 			spiceSpec = fmt.Sprintf("port=%d%s,ipv4=%s,ipv6=%s,tls-port=%d,disable-ticketing=%s,agent-mouse=%s,gl=%s,unix=on",
 				cd.Display.Spice.Port,
