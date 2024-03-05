@@ -158,7 +158,8 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 	qemuArgs = qemu.appendQemuArg(qemuArgs, "-m", cd.Memory)
 
 	// -- cpus
-	qemuArgs = qemu.appendQemuArg(qemuArgs, "-smp", fmt.Sprintf("%d", cd.CPUs))
+	cpuSpec := fmt.Sprintf("%d,sockets=1,threads=1", cd.CPUs)
+	qemuArgs = qemu.appendQemuArg(qemuArgs, "-smp", cpuSpec)
 
 	// -- CDROM
 	if len(cd.Disks.ISOCDrom) > 0 {
@@ -410,7 +411,9 @@ func (qemu *QemuCommand) getQemuArgs() (qemuArgs []string, err error) {
 		}
 		qemuArgs = qemu.appendQemuArg(qemuArgs,
 			"-drive",
-			fmt.Sprintf("format=%s,file=%s,if=%s,media=%s", image.Format, image.File, driveIf, driveMedia))
+			fmt.Sprintf("format=%s,file=%s,if=%s,media=%s,discard=%s",
+				image.Format, image.File, driveIf, driveMedia,
+				qemu.getBoolString(cd.Machine.WindowsVM, "unmap", "ignore")))
 	}
 	// qemuArgs = append(qemuArgs, cd.Disks.HardDisk)
 

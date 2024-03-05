@@ -36,6 +36,7 @@ type ConfigurationData struct {
 				CharDevice string `yaml:"charDevice"`
 			} `yaml:"emulator"`
 		} `yaml:"tpm"`
+		WindowsVM bool `yaml:"windowsVM"`
 	} `yaml:"machine"`
 	RunAsDaemon bool   `yaml:"runAsDaemon"`
 	RunAs       string `yaml:"runAs"`
@@ -157,6 +158,7 @@ func NewConfigData() (configData *ConfigurationData) {
 	configData.Machine.AccelType = "hvm"
 	configData.Machine.CPU = "host"
 	configData.Machine.EnableKVM = true
+	configData.Machine.WindowsVM = false
 
 	configData.Machine.TPM.Passthrough.Enabled = false
 	configData.Machine.TPM.Emulator.Enabled = false
